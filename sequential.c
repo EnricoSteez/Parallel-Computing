@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <gen_points.c>
 
-#define DIMENSIONS 4
+#define DIMENSIONS 3
+#define NP 5000
 
 typedef struct node{
     float coordinates[DIMENSIONS];
@@ -28,12 +30,16 @@ float orthogonal_projection(node n){
 int main(int argc, char **argv){
 
     //1. get input sample points (use the function from the guide)
+    int dim = DIMENSIONS;
+    int np = NP;
+
+    double ** arr = create_array_pts(DIMENSIONS,NP);
+    double ** points = get_points(argc, argv, &dim, &np);
+
 
     //2. compute points a and b, furthest apart in the current set;
-    //passing pointers to nodes so that the function can set a and b to the extremes
-    node a;
-    node b;
-    find_extremes(&a, &b);
+    
+    
 
     //3. perform the orthogonal projection of all points onto line ab;
 
