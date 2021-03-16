@@ -32,19 +32,20 @@ void calculate_distance(double **points_table, long n_points, int n_dim, int* in
 
 void orthogonal_projection(double **points_table, long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
     double delta = 0, gamma = 0, phi = 0;
+    double a, b, point;
 
     for(long p = 0; p < n_points; p++){
         for(int dim = 0; dim < n_dim; dim++){
-            double a = points_table[indexes[0]][dim];
-            double b = points_table[indexes[1]][dim];
-            double point = points_table[p][dim];
+            a = points_table[indexes[0]][dim];
+            b = points_table[indexes[1]][dim];
+            point = points_table[p][dim];
             delta += (point - a) * (b - a);
             gamma += pow((b - a), 2);
         }
         phi = delta / gamma;
         for(int dim = 0; dim < n_dim; dim++){
-            double a = points_table[indexes[0]][dim];
-            double b = points_table[indexes[1]][dim];
+            a = points_table[indexes[0]][dim];
+            b = points_table[indexes[1]][dim];
             proj_table[p][dim] = phi * (b - a) + a;
         }
         delta = 0;
