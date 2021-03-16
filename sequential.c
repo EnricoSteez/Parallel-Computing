@@ -52,7 +52,7 @@ double distance_between_points(double* point1, double* point2, int dim) {
 }
 
 
-//returns the indeices of the 2 furthest points
+//returns the indices of the 2 furthest points
 void furthest_points(double** points, int np, int dim, int furthest[]) {
     double* first_point = points[0];
     int i, max_index;
