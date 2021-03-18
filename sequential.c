@@ -18,10 +18,9 @@ struct IndexCoord {
     double coord;
 };
 
-
 static int compare (const void * a, const void * b)
 {
-    return ( (*(struct IndexCoord*)b).coord > (*(struct IndexCoord*)a).coord );
+    return ( (*(struct IndexCoord*)b).coord < (*(struct IndexCoord*)a).coord );
 }
 
 int find_extremes(node * a, node * b){
@@ -43,13 +42,15 @@ void print_point(double* point, int dim) {
     printf(")\n");
 }
 
+
+
 void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
 
     struct IndexCoord median_coords[n_points];
     int counter = 1;
     double coord = 0;
     double median_point[n_dim];
-
+    
     for(int i = 0; i < n_dim; i++){
         for(long p = 0; p < n_points; p++){
             if((coord = proj_table[p][i]) == proj_table[p+1][i] && p < n_points - 1)
@@ -73,6 +74,16 @@ void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_poi
         for(int i = 0; i < n_dim; i++){
             median_point[i] = proj_table[idx_median][i];
         }
+        // Divide the arrays
+        long L[(n_points-1)/2];
+        long R[(n_points+1)/2];
+
+        for(int p = 0; p < ((n_points-1)/2); p++){
+            L[p] = median_coords[p].idx;
+            R[p] = median_coords[n_points-1-p].idx;
+        }
+        R[(n_points-1)/2] = median_coords[(n_points-1)/2].idx;
+    
     }
     else{
         long idx_median_1 = median_coords[n_points / 2].idx;
@@ -80,15 +91,19 @@ void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_poi
         for(int i = 0; i < n_dim; i++){
             median_point[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
         }
+        long L[n_points/2];
+        long R[n_points/2];
+        for(int p = 0; p < (n_points / 2); p++){
+            L[p] = median_coords[p].idx;
+            R[p] = median_coords[n_points-1-p].idx;
+        }
     }
-
     //printf("MEDIAN POINT\n");
     //for(int i = 0; i < n_dim; i++){
     //   printf("%f\n", median_point[i]);
     //}
 
     // We need to divide the points still and return as an input parameter
-
 }
 
 void orthogonal_projection(double **points_table, long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
@@ -122,6 +137,16 @@ double distance_between_points(double* point1, double* point2, int dim) {
     return sqrt(sum);
 }
 
+double find_radius(double *median_point, int* indexes, int n_points, int n_dim, double proj_table[n_points][n_dim]){
+    
+    double highest = 0, dist;
+    for(int i=0; i<2; i++){
+        dist = distance_between_points(median_point, proj_table[indexes[i]], n_dim);
+        if(dist>highest)
+            highest = dist;
+    }
+    return highest;
+}
 
 //returns the indices of the 2 furthest points
 void furthest_points(double** points, int np, int dim, int furthest[]) {
@@ -185,17 +210,15 @@ int main(int argc, char **argv){
     for(int i = 0; i < np; i++){
         printf("Point %d ", (i));
         for(int k = 0; k < dim; k++){
-            printf("Dim %d, value = %f ", k, proj_table[i][k]);
+            printf("Dim %d, value = %f ", k, points[i][k]);
         }
         printf("\n");
     }
-
+    
     find_median(np, dim, furthest, proj_table);
     //4. compute the center, defined as the median point over all projections;
 
     //5. create two sets of points, L and R, deﬁned as the points whose projection lies to one side or the other of the center;
-
-    
 
     return 0;
 }
