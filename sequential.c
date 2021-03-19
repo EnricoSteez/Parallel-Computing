@@ -5,7 +5,6 @@
 #define DIMENSIONS 3
 #define NP 5000
 
-
 typedef struct node {
     float coordinates[DIMENSIONS];
     float radius;
@@ -44,7 +43,9 @@ static int compare (const void * a, const void * b)
 }
 
 struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
-    struct IndexCoord* oneDim_projection = (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*n_points);
+    struct IndexCoord* oneDim_projection = 
+        (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*n_points);
+
     int counter = 1;
     double coord = 0;
 
@@ -66,11 +67,16 @@ struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* 
     return oneDim_projection;
 }
 
-void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n_points], double proj_table[n_points][n_dim]){
-    //for (int n=0; n<n_points; n++){
-    //    printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
-    //}
-    //printf("\n");
+void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n_points], 
+    double proj_table[n_points][n_dim]){
+    
+    #ifdef DEBUG 
+        printf("\nPoints projected on one dimension: coordinate (idx):\n")
+        for (int n=0; n<n_points; n++){
+        printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+        }
+        printf("\n");
+    #endif
 
 
     //return value for the median point
@@ -105,10 +111,12 @@ void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n
             R[p] = oneDim_projection[n_points-1-p].idx;
         }
     }
-    //printf("MEDIAN POINT\n");
-    //for(int i = 0; i < n_dim; i++){
-    //   printf("%f\n", median_point[i]);
-    //}
+    #ifdef DEBUG 
+        printf("\nMEDIAN POINT (full coordinate):\n");
+        for(int i = 0; i < n_dim; i++){
+            printf("%f\n", median_point[i]);
+        }
+    #endif
 
     // We need to divide the points still and return as an input parameter
 }
