@@ -18,10 +18,7 @@ struct IndexCoord {
     double coord;
 };
 
-static int compare (const void * a, const void * b)
-{
-    return ( (*(struct IndexCoord*)b).coord < (*(struct IndexCoord*)a).coord );
-}
+
 
 int find_extremes(node * a, node * b){
     
@@ -29,7 +26,6 @@ int find_extremes(node * a, node * b){
 
     return 0;
 }
-
 
 void print_point(double* point, int dim) {
     int j;
@@ -42,14 +38,16 @@ void print_point(double* point, int dim) {
     printf(")\n");
 }
 
+static int compare (const void * a, const void * b)
+{
+    return ( (*(struct IndexCoord*)b).coord < (*(struct IndexCoord*)a).coord );
+}
 
-
-void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
-
+struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double** proj_table){
     struct IndexCoord median_coords[n_points];
     int counter = 1;
     double coord = 0;
-    double median_point[n_dim];
+
     
     for(int i = 0; i < n_dim; i++){
         for(long p = 0; p < n_points; p++){
@@ -63,11 +61,20 @@ void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_poi
         counter = 1;
     }
     qsort(median_coords, n_points, sizeof(struct IndexCoord), compare); 
-    
+
+
+    return median_coords;
+}
+
+void find_median(long n_points, int n_dim, struct IndexCoord* median_coords, double** proj_table){
     //for (int n=0; n<n_points; n++){
     //    printf ("%f (%ld)\n",median_coords[n].coord, median_coords[n].idx);
     //}
     //printf("\n");
+
+
+    //return value for the median point
+    double median_point[n_dim];
     
     if((n_points % 2) != 0){
         long idx_median = median_coords[(n_points - 1) / 2].idx;
@@ -181,11 +188,8 @@ int main(int argc, char **argv){
 
     //double ** arr = create_array_pts(DIMENSIONS,NP);
     double ** points = get_points(argc, argv, &dim, &np);
-
+    
     int j;
-
-
-
 
     //2. compute points a and b, furthest apart in the current set;
     
@@ -214,8 +218,15 @@ int main(int argc, char **argv){
         }
         printf("\n");
     }
+
+    //proj_table are the points on line ab
+    struct IndexCoord* median_coords = project_on_dimension_and_sort(np, dim, furthest, proj_table);
     
-    find_median(np, dim, furthest, proj_table);
+    //median_coords are the points projected on one dimension, ready to find the median point
+    find_median(np, dim, furthest, median_coords);
+
+
+
     //4. compute the center, defined as the median point over all projections;
 
     //5. create two sets of points, L and R, deﬁned as the points whose projection lies to one side or the other of the center;
