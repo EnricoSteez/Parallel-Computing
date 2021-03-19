@@ -71,7 +71,7 @@ void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n
     double proj_table[n_points][n_dim]){
     
     #ifdef DEBUG 
-        printf("\nPoints projected on one dimension: coordinate (idx):\n")
+        printf("\nPoints projected on one dimension: coordinate (idx):\n");
         for (int n=0; n<n_points; n++){
         printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
         }
