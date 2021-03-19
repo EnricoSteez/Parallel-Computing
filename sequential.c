@@ -39,7 +39,7 @@ void print_point(double* point, int dim) {
 
 static int compare (const void * a, const void * b)
 {
-    return ( (*(struct IndexCoord*)b).coord < (*(struct IndexCoord*)a).coord );
+    return ( (*(struct IndexCoord *) a).coord - (*(struct IndexCoord*) b).coord );
 }
 
 struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
@@ -61,8 +61,24 @@ struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* 
             break;
         counter = 1;
     }
+
+    // #ifdef DEBUG 
+    //     printf("\nPoints projected on one dimension BEFORE QSORT:\n");
+    //     for (int n=0; n<n_points; n++){
+    //     printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+    //     }
+    //     printf("\n");
+    // #endif
+
     qsort(oneDim_projection, n_points, sizeof(struct IndexCoord), compare); 
 
+    #ifdef DEBUG 
+        printf("\nPoints projected on one dimension AFTER QSORT:\n");
+        for (int n=0; n<n_points; n++){
+        printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+        }
+        printf("\n");
+    #endif
 
     return oneDim_projection;
 }
@@ -70,15 +86,6 @@ struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* 
 void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n_points], 
     double proj_table[n_points][n_dim]){
     
-    #ifdef DEBUG 
-        printf("\nPoints projected on one dimension: coordinate (idx):\n");
-        for (int n=0; n<n_points; n++){
-        printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
-        }
-        printf("\n");
-    #endif
-
-
     //return value for the median point
     double median_point[n_dim];
     
@@ -113,8 +120,16 @@ void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n
     }
     #ifdef DEBUG 
         printf("\nMEDIAN POINT (full coordinate):\n");
+
+        //don't judge this code please
         for(int i = 0; i < n_dim; i++){
-            printf("%f\n", median_point[i]);
+            if(i==0){
+                printf("(%f", median_point[i]);
+            } else if(i==--n_dim){
+                printf(",%f)\n", median_point[i]);
+            } else {
+                printf(",%f", median_point[i]);
+            }
         }
     #endif
 
