@@ -5,7 +5,6 @@
 #define DIMENSIONS 3
 #define NP 5000
 
-
 typedef struct node {
     float coordinates[DIMENSIONS];
     float radius;
@@ -18,10 +17,7 @@ struct IndexCoord {
     double coord;
 };
 
-static int compare (const void * a, const void * b)
-{
-    return ( (*(struct IndexCoord*)b).coord < (*(struct IndexCoord*)a).coord );
-}
+
 
 int find_extremes(node * a, node * b){
     
@@ -29,7 +25,6 @@ int find_extremes(node * a, node * b){
 
     return 0;
 }
-
 
 void print_point(double* point, int dim) {
     int j;
@@ -42,35 +37,60 @@ void print_point(double* point, int dim) {
     printf(")\n");
 }
 
+static int compare (const void * a, const void * b)
+{
+    return ( (*(struct IndexCoord *) a).coord - (*(struct IndexCoord*) b).coord );
+}
 
+struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
+    struct IndexCoord* oneDim_projection = 
+        (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*n_points);
 
-void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
-
-    struct IndexCoord median_coords[n_points];
     int counter = 1;
     double coord = 0;
-    double median_point[n_dim];
+
     
     for(int i = 0; i < n_dim; i++){
         for(long p = 0; p < n_points; p++){
             if((coord = proj_table[p][i]) == proj_table[p+1][i] && p < n_points - 1)
                     counter++;
-            median_coords[p].coord = coord;
-            median_coords[p].idx = p;
+            oneDim_projection[p].coord = coord;
+            oneDim_projection[p].idx = p;
         }
         if(counter != n_points)
             break;
         counter = 1;
     }
-    qsort(median_coords, n_points, sizeof(struct IndexCoord), compare); 
+
+    // #ifdef DEBUG 
+    //     printf("\nPoints projected on one dimension BEFORE QSORT:\n");
+    //     for (int n=0; n<n_points; n++){
+    //     printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+    //     }
+    //     printf("\n");
+    // #endif
+
+    qsort(oneDim_projection, n_points, sizeof(struct IndexCoord), compare); 
+
+    #ifdef DEBUG 
+        printf("\nPoints projected on one dimension AFTER QSORT:\n");
+        for (int n=0; n<n_points; n++){
+        printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+        }
+        printf("\n");
+    #endif
+
+    return oneDim_projection;
+}
+
+void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n_points], 
+    double proj_table[n_points][n_dim]){
     
-    //for (int n=0; n<n_points; n++){
-    //    printf ("%f (%ld)\n",median_coords[n].coord, median_coords[n].idx);
-    //}
-    //printf("\n");
+    //return value for the median point
+    double median_point[n_dim];
     
     if((n_points % 2) != 0){
-        long idx_median = median_coords[(n_points - 1) / 2].idx;
+        long idx_median = oneDim_projection[(n_points - 1) / 2].idx;
         for(int i = 0; i < n_dim; i++){
             median_point[i] = proj_table[idx_median][i];
         }
@@ -79,29 +99,39 @@ void find_median(long n_points, int n_dim, int* indexes, double proj_table[n_poi
         long R[(n_points+1)/2];
 
         for(int p = 0; p < ((n_points-1)/2); p++){
-            L[p] = median_coords[p].idx;
-            R[p] = median_coords[n_points-1-p].idx;
+            L[p] = oneDim_projection[p].idx;
+            R[p] = oneDim_projection[n_points-1-p].idx;
         }
-        R[(n_points-1)/2] = median_coords[(n_points-1)/2].idx;
+        R[(n_points-1)/2] = oneDim_projection[(n_points-1)/2].idx;
     
     }
     else{
-        long idx_median_1 = median_coords[n_points / 2].idx;
-        long idx_median_2 = median_coords[(n_points / 2) - 1].idx;
+        long idx_median_1 = oneDim_projection[n_points / 2].idx;
+        long idx_median_2 = oneDim_projection[(n_points / 2) - 1].idx;
         for(int i = 0; i < n_dim; i++){
             median_point[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
         }
         long L[n_points/2];
         long R[n_points/2];
         for(int p = 0; p < (n_points / 2); p++){
-            L[p] = median_coords[p].idx;
-            R[p] = median_coords[n_points-1-p].idx;
+            L[p] = oneDim_projection[p].idx;
+            R[p] = oneDim_projection[n_points-1-p].idx;
         }
     }
-    //printf("MEDIAN POINT\n");
-    //for(int i = 0; i < n_dim; i++){
-    //   printf("%f\n", median_point[i]);
-    //}
+    #ifdef DEBUG 
+        printf("\nMEDIAN POINT (full coordinate):\n");
+
+        //don't judge this code please
+        for(int i = 0; i < n_dim; i++){
+            if(i==0){
+                printf("(%f", median_point[i]);
+            } else if(i==--n_dim){
+                printf(",%f)\n", median_point[i]);
+            } else {
+                printf(",%f", median_point[i]);
+            }
+        }
+    #endif
 
     // We need to divide the points still and return as an input parameter
 }
@@ -181,11 +211,8 @@ int main(int argc, char **argv){
 
     //double ** arr = create_array_pts(DIMENSIONS,NP);
     double ** points = get_points(argc, argv, &dim, &np);
-
+    
     int j;
-
-
-
 
     //2. compute points a and b, furthest apart in the current set;
     
@@ -214,10 +241,18 @@ int main(int argc, char **argv){
         }
         printf("\n");
     }
+
+    //proj_table are the points on line ab and this function projects them onto one single dimension
+    struct IndexCoord* oneDim_projection = project_on_dimension_and_sort(np, dim, furthest, proj_table);
     
-    find_median(np, dim, furthest, proj_table);
+    //oneDim_projection are the points projected on one dimension, ready to find the median point
+    find_median(np, dim, oneDim_projection, proj_table);
+
+
+
     //4. compute the center, defined as the median point over all projections;
 
+free(oneDim_projection);
     //5. create two sets of points, L and R, deﬁned as the points whose projection lies to one side or the other of the center;
 
     return 0;
