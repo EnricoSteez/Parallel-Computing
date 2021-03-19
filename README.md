@@ -1,2 +1,2 @@
-Please compile it with "main" as the name of the binary. 
+Compile with -DDEBUG to see all debug prints
 
