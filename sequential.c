@@ -44,7 +44,7 @@ static int compare (const void * a, const void * b)
 }
 
 struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
-    static struct IndexCoord oneDim_projection[n_points];
+    struct IndexCoord* oneDim_projection = (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*n_points);
     int counter = 1;
     double coord = 0;
 
