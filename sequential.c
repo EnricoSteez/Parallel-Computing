@@ -252,6 +252,7 @@ int main(int argc, char **argv){
 
     //4. compute the center, defined as the median point over all projections;
 
+free(oneDim_projection);
     //5. create two sets of points, L and R, deﬁned as the points whose projection lies to one side or the other of the center;
 
     return 0;
