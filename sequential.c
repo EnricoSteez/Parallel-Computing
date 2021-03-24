@@ -2,11 +2,11 @@
 #include <math.h>
 #include "gen_points.c"
 
-#define DIMENSIONS 3
-#define NP 5000
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 typedef struct node {
-    float coordinates[DIMENSIONS];
+    double* coordinates;
     float radius;
     struct node* left;
     struct node* right;
@@ -16,6 +16,12 @@ struct IndexCoord {
     long idx;
     double coord;
 };
+
+
+double ** points;
+int dim;
+long np;
+
 
 
 
@@ -30,47 +36,46 @@ void print_point(double* point, int dim) {
     int j;
     printf("(");
     for(j = 0; j < dim; j++) {
-        if(j != dim-1) printf("%lf, ", point[j]);
+        if(j != dim-1) printf("%.1lf, ", point[j]);
 
-        else printf("%lf", point[j]);
+        else printf("%.1lf", point[j]);
     }
     printf(")\n");
 }
 
 static int compare (const void * a, const void * b)
 {
-    return ( (*(struct IndexCoord *) a).coord - (*(struct IndexCoord*) b).coord );
+    double diff = ( (*(struct IndexCoord *) a).coord - (*(struct IndexCoord*) b).coord );
+    if(diff < 0) {
+        return -1;
+    }
+    else if(diff > 0) {
+        return 1;
+    }
+    return 0;
 }
 
-struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
+struct IndexCoord* project_on_dimension_and_sort(long current_set_size, long* current_set, double proj_table[][dim]){
     struct IndexCoord* oneDim_projection = 
-        (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*n_points);
+        (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*current_set_size);
 
     int counter = 1;
     double coord = 0;
 
     
-    for(int i = 0; i < n_dim; i++){
-        for(long p = 0; p < n_points; p++){
-            if((coord = proj_table[p][i]) == proj_table[p+1][i] && p < n_points - 1)
+    for(int i = 0; i < dim; i++){
+        for(long p = 0; p < current_set_size; p++){
+            if((coord = proj_table[p][i]) == proj_table[p+1][i] && p < current_set_size - 1)
                     counter++;
             oneDim_projection[p].coord = coord;
             oneDim_projection[p].idx = p;
         }
-        if(counter != n_points)
+        if(counter != current_set_size)
             break;
         counter = 1;
     }
 
-    // #ifdef DEBUG 
-    //     printf("\nPoints projected on one dimension BEFORE QSORT:\n");
-    //     for (int n=0; n<n_points; n++){
-    //     printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
-    //     }
-    //     printf("\n");
-    // #endif
-
-    qsort(oneDim_projection, n_points, sizeof(struct IndexCoord), compare); 
+    qsort(oneDim_projection, current_set_size, sizeof(struct IndexCoord), compare); 
 
     #ifdef DEBUG 
         printf("\nPoints projected on one dimension AFTER QSORT:\n");
@@ -83,49 +88,46 @@ struct IndexCoord* project_on_dimension_and_sort(long n_points, int n_dim, int* 
     return oneDim_projection;
 }
 
-void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n_points], 
-    double proj_table[n_points][n_dim]){
+double* find_median(long current_set_size, long* current_set, struct IndexCoord oneDim_projection[], double proj_table[][dim], long* R, long* L){
     
     //return value for the median point
-    double median_point[n_dim];
-    
-    if((n_points % 2) != 0){
-        long idx_median = oneDim_projection[(n_points - 1) / 2].idx;
-        for(int i = 0; i < n_dim; i++){
+    double* median_point = (double*)malloc(dim*sizeof(double));
+    if((current_set_size % 2) != 0){
+        long idx_median = oneDim_projection[(current_set_size - 1) / 2].idx;
+        for(int i = 0; i < dim; i++){
             median_point[i] = proj_table[idx_median][i];
         }
-        // Divide the arrays
-        long L[(n_points-1)/2];
-        long R[(n_points+1)/2];
 
-        for(int p = 0; p < ((n_points-1)/2); p++){
-            L[p] = oneDim_projection[p].idx;
-            R[p] = oneDim_projection[n_points-1-p].idx;
+        // Divide the arrays
+        for(int p = 0; p < ((current_set_size-1)/2); p++){
+            *(L + p) = current_set[oneDim_projection[p].idx];
+            *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
         }
-        R[(n_points-1)/2] = oneDim_projection[(n_points-1)/2].idx;
-    
+        *(R + (current_set_size-1)/2) = current_set[oneDim_projection[(current_set_size-1)/2].idx];    
     }
     else{
-        long idx_median_1 = oneDim_projection[n_points / 2].idx;
-        long idx_median_2 = oneDim_projection[(n_points / 2) - 1].idx;
-        for(int i = 0; i < n_dim; i++){
+
+        long idx_median_1 = oneDim_projection[current_set_size / 2].idx;
+        long idx_median_2 = oneDim_projection[(current_set_size / 2) - 1].idx;
+        for(int i = 0; i < dim; i++){
             median_point[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
         }
-        long L[n_points/2];
-        long R[n_points/2];
-        for(int p = 0; p < (n_points / 2); p++){
-            L[p] = oneDim_projection[p].idx;
-            R[p] = oneDim_projection[n_points-1-p].idx;
+        for(int p = 0; p < (current_set_size / 2); p++){
+            *(L + p) = current_set[oneDim_projection[p].idx];
+            *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
         }
     }
+    return median_point;
+
+
     #ifdef DEBUG 
         printf("\nMEDIAN POINT (full coordinate):\n");
 
         //don't judge this code please
-        for(int i = 0; i < n_dim; i++){
+        for(int i = 0; i < dim; i++){
             if(i==0){
                 printf("(%f", median_point[i]);
-            } else if(i==--n_dim){
+            } else if(i==--dim){
                 printf(",%f)\n", median_point[i]);
             } else {
                 printf(",%f", median_point[i]);
@@ -133,127 +135,205 @@ void find_median(long n_points, int n_dim, struct IndexCoord oneDim_projection[n
         }
     #endif
 
+
+
     // We need to divide the points still and return as an input parameter
 }
 
-void orthogonal_projection(double **points_table, long n_points, int n_dim, int* indexes, double proj_table[n_points][n_dim]){
+void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, double proj_table[][dim]){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
-
-    for(long p = 0; p < n_points; p++){
-        for(int dim = 0; dim < n_dim; dim++){
-            a = points_table[indexes[0]][dim];
-            b = points_table[indexes[1]][dim];
-            point = points_table[p][dim];
+    int d;
+    for(long p = 0; p < current_set_size; p++){
+        for(d = 0; d < dim; d++){
+            a = points[furthest_points[0]][d];
+            b = points[furthest_points[1]][d];
+            point = points[current_set[p]][d];
             delta += (point - a) * (b - a);
             gamma += pow((b - a), 2);
         }
         phi = delta / gamma;
-        for(int dim = 0; dim < n_dim; dim++){
-            a = points_table[indexes[0]][dim];
-            b = points_table[indexes[1]][dim];
-            proj_table[p][dim] = phi * (b - a) + a;
+        for(d = 0; d < dim; d++){
+            a = points[furthest_points[0]][d];
+            b = points[furthest_points[1]][d];
+            proj_table[p][d] = phi * (b - a) + a;
         }
         delta = 0;
         gamma = 0;
     }
+
 }
 
-double distance_between_points(double* point1, double* point2, int dim) {
-    int i, sum = 0;
+
+double distance_between_points(double* point1, double* point2) {
+    int i;
+    double sum = 0;
     for (i = 0; i < dim; i++) {
         sum += pow(point2[i] - point1[i], 2);
     }
-    return sqrt(sum);
+    return sqrt(sum*1.0);
 }
 
-double find_radius(double *median_point, int* indexes, int n_points, int n_dim, double proj_table[n_points][n_dim]){
+double find_radius(double *median_point, long* current_set, long current_set_size){
     
     double highest = 0, dist;
-    for(int i=0; i<2; i++){
-        dist = distance_between_points(median_point, proj_table[indexes[i]], n_dim);
+    for(long i=0; i<current_set_size; i++){
+        dist = distance_between_points(median_point, points[current_set[i]]);
         if(dist>highest)
             highest = dist;
     }
     return highest;
 }
 
-//returns the indices of the 2 furthest points
-void furthest_points(double** points, int np, int dim, int furthest[]) {
-    double* first_point = points[0];
-    int i, max_index;
-    double aux, max;
+long furthest_point_from_point(double* point, long* current_set, long current_set_size) {
+    long i, max_index;
+    double aux, max = 0;
 
-    for (i = 1; i < np; i++) {
-        if((aux = distance_between_points(first_point, points[i], dim)) > max) {
+    for (i = 0; i < current_set_size; i++) {
+        if((aux = distance_between_points(point, points[current_set[i]])) > max) {
             max = aux;
-            max_index = i;
+            max_index = current_set[i];
         }
     }
 
-    int a = max_index;
-    max = 0;
-    for (i = 0; i < np; i++) {
-        if((aux = distance_between_points(points[a], points[i], dim)) > max) {
-            max = aux;
-            max_index = i;
-        }
-    }
-    furthest[0] = a;
-    furthest[1] = max_index;
+    return max_index;
 }
 
-int main(int argc, char **argv){
+//returns the indices of the 2 furthest points
+void furthest_points(long furthest[], long* current_set, long current_set_size) {
+    double* first_point = points[current_set[0]];
+    long a = furthest_point_from_point(first_point, current_set, current_set_size);
 
-    //1. get input sample points (use the function from the guide)
-    int dim;
-    long np;
+    furthest[0] = a;
+    furthest[1] =furthest_point_from_point(points[a], current_set, current_set_size);
+}
 
-    //double ** arr = create_array_pts(DIMENSIONS,NP);
-    double ** points = get_points(argc, argv, &dim, &np);
-    
-    int j;
+struct node* build_tree(int node_index, long* current_set, long current_set_size) {
+    /**
+     * 
+     * NOTE:
+     * current_set: array of size current_set_size containing the indices of the original array (points) that we are currently working on
+     * proj_table: array of size current_set_size containing the corresponding projection to each point in point[current_set[i]]
+     * oneDim_projection: array of size current_set_size containing the corresponding one dimension point to each point in proj_table
+     *
+     * */
+    if(current_set_size == 1) {
+        //stop recursion
+        struct node* res = (struct node*)malloc(sizeof(struct node));
+        res->coordinates = points[current_set[0]];
+        res->left = NULL;
+        res->right = NULL;
+        res->radius = 0;
 
-    //2. compute points a and b, furthest apart in the current set;
-    
-    int furthest[2];
+        return res;
+    }    
 
-    furthest_points(points, np, dim, furthest);
-    int a = furthest[0];
-    int b = furthest[1];
-
-    printf("a ");
-
-    print_point(points[a], dim);
-
-    printf("b ");
-
-    print_point(points[b], dim);
-
-    //3. perform the orthogonal projection of all points onto line ab;
-
-    double proj_table[np][dim]; 
-    orthogonal_projection(points, np, dim, furthest, proj_table);
-    for(int i = 0; i < np; i++){
-        printf("Point %d ", (i));
-        for(int k = 0; k < dim; k++){
-            printf("Dim %d, value = %f ", k, points[i][k]);
+    double proj_table[current_set_size][dim];
+    if(current_set_size > 2) {
+        //compute points a and b, furthest apart in the current set;
+        long furthest[2];
+        furthest_points(furthest, current_set, current_set_size);
+        long a = furthest[0];
+        long b = furthest[1];
+        //perform the orthogonal projection of all points onto line ab;
+        orthogonal_projection(current_set_size, current_set, furthest, proj_table);
+    }
+    else {
+        //if there are only 2 points, no need to make orthogonal projection
+        for(int i = 0; i < current_set_size; i++) {
+            proj_table[0][i] = points[current_set[0]][i];
+            proj_table[1][i] = points[current_set[1]][i];
         }
-        printf("\n");
     }
 
     //proj_table are the points on line ab and this function projects them onto one single dimension
-    struct IndexCoord* oneDim_projection = project_on_dimension_and_sort(np, dim, furthest, proj_table);
-    
+    struct IndexCoord* oneDim_projection = project_on_dimension_and_sort(current_set_size, current_set, proj_table);
+
+    long* L;
+    long* R;
+    long L_size, R_size;
+    if((current_set_size % 2) != 0){
+        L_size = (current_set_size-1)/2;
+        R_size = (current_set_size+1)/2;
+    }
+    else {
+        L_size = current_set_size/2;
+        R_size = current_set_size/2;
+    }
+    L = (long*)malloc(L_size * sizeof(long));
+    R = (long*)malloc(R_size * sizeof(long));
+
+
+    //compute the center, defined as the median point over all projections;
     //oneDim_projection are the points projected on one dimension, ready to find the median point
-    find_median(np, dim, oneDim_projection, proj_table);
+    double* median = find_median(current_set_size, current_set, oneDim_projection, proj_table, R, L);
+
+    
+    free(oneDim_projection);
+    //proj table should be dynamically alocated with malloc in order to free
 
 
+    struct node* res = (struct node*)malloc(sizeof(struct node));
+    res->coordinates = median;
+    res->radius = find_radius(median, current_set, current_set_size);
+    res->left = build_tree(node_index + 1, L, L_size);
+    res->right = build_tree(node_index + 1 + (L_size*2-1), R, R_size);
 
-    //4. compute the center, defined as the median point over all projections;
 
-free(oneDim_projection);
-    //5. create two sets of points, L and R, deﬁned as the points whose projection lies to one side or the other of the center;
+    return res;
+}
+
+
+int main(int argc, char **argv){
+
+    //get input sample points (use the function from the guide)
+
+    points = get_points(argc, argv, &dim, &np);
+    
+    int j;
+
+    long* current_set = (long*) malloc(np * sizeof(long));
+    for(j = 0; j < np; j++) {
+        current_set[j] = j;
+    }
+
+    struct node* tree = build_tree(0, current_set, np);
+
+    printf("root:\n");
+    print_point(tree->coordinates, dim);
+    printf("radius: %lf\n", tree->radius);
+
+    printf("left:\n");
+    print_point(tree->left->coordinates, dim);
+    printf("radius: %lf\n", tree->left->radius);
+
+    printf("left-left:\n");
+    print_point(tree->left->left->coordinates, dim);
+    printf("radius: %lf\n", tree->left->left->radius);
+
+    printf("left-right:\n");
+    print_point(tree->left->right->coordinates, dim);
+    printf("radius: %lf\n", tree->left->right->radius);
+
+    printf("right:\n");
+    print_point(tree->right->coordinates, dim);
+    printf("radius: %lf\n", tree->right->radius);
+
+    printf("right-left:\n");
+    print_point(tree->right->left->coordinates, dim);
+    printf("radius: %lf\n", tree->right->left->radius);
+
+    printf("right-right:\n");
+    print_point(tree->right->right->coordinates, dim);
+    printf("radius: %lf\n", tree->right->right->radius);
+
+    printf("right-right-left:\n");
+    print_point(tree->right->right->left->coordinates, dim);
+    printf("radius: %lf\n", tree->right->right->left->radius);
+
+    printf("right-right-right:\n");
+    print_point(tree->right->right->right->coordinates, dim);
+    printf("radius: %lf\n", tree->right->right->right->radius);
 
     return 0;
 }
