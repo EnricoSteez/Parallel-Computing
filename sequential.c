@@ -6,6 +6,7 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 typedef struct node {
+    long id;
     double* coordinates;
     float radius;
     struct node* left;
@@ -220,6 +221,7 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     if(current_set_size == 1) {
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
+        res->id = node_index;
         res->coordinates = points[current_set[0]];
         res->left = NULL;
         res->right = NULL;
@@ -240,7 +242,7 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
-        for(int i = 0; i < current_set_size; i++) {
+        for(int i = 0; i < dim; i++) {
             proj_table[0][i] = points[current_set[0]][i];
             proj_table[1][i] = points[current_set[1]][i];
         }
@@ -276,6 +278,7 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = median;
     res->radius = find_radius(median, current_set, current_set_size);
+    res->id = node_index;
     res->left = build_tree(node_index + 1, L, L_size);
     res->right = build_tree(node_index + 1 + (L_size*2-1), R, R_size);
 
