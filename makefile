@@ -1,5 +1,5 @@
 CC=gcc-10
-CFLAGS=-fopenmp
+CFLAGS=-fopenmp -O3
 
 ballAlg: ballAlg.c
 	$(CC) -o ballAlg ballAlg.c $(CFLAGS)
