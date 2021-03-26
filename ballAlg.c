@@ -78,13 +78,13 @@ struct IndexCoord* project_on_dimension_and_sort(long current_set_size, long* cu
 
     qsort(oneDim_projection, current_set_size, sizeof(struct IndexCoord), compare); 
 
-    #ifdef DEBUG 
-        printf("\nPoints projected on one dimension AFTER QSORT:\n");
-        for (int n=0; n<n_points; n++){
-        printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
-        }
-        printf("\n");
-    #endif
+    // #ifdef DEBUG 
+    //     printf("\nPoints projected on one dimension AFTER QSORT:\n");
+    //     for (int n=0; n<current_set_size; n++){
+    //     printf ("%f (%ld)\n",oneDim_projection[n].coord, oneDim_projection[n].idx);
+    //     }
+    //     printf("\n");
+    // #endif
 
     return oneDim_projection;
 }
@@ -118,25 +118,23 @@ double* find_median(long current_set_size, long* current_set, struct IndexCoord 
             *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
         }
     }
-    return median_point;
-
 
     #ifdef DEBUG 
         printf("\nMEDIAN POINT (full coordinate):\n");
 
+        printf("(");
         //don't judge this code please
         for(int i = 0; i < dim; i++){
-            if(i==0){
-                printf("(%f", median_point[i]);
-            } else if(i==--dim){
-                printf(",%f)\n", median_point[i]);
-            } else {
-                printf(",%f", median_point[i]);
+            printf("%f", median_point[i]);
+            if(i!=dim-1){
+                printf(",", median_point[i]);
             }
         }
+        printf(")\n");
+
     #endif
 
-
+    return median_point;
 
     // We need to divide the points still and return as an input parameter
 }
@@ -145,6 +143,10 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
+    #ifdef DEBUG
+        printf("\nProjections on ab line\n");
+    #endif
+
     for(long p = 0; p < current_set_size; p++){
         for(d = 0; d < dim; d++){
             a = points[furthest_points[0]][d];
@@ -154,11 +156,26 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
             gamma += pow((b - a), 2);
         }
         phi = delta / gamma;
+
+        #ifdef DEBUG
+            printf("(");
+        #endif
+
         for(d = 0; d < dim; d++){
             a = points[furthest_points[0]][d];
             b = points[furthest_points[1]][d];
             proj_table[p][d] = phi * (b - a) + a;
+            #ifdef DEBUG
+                printf("%lf",proj_table[p][d]);
+                if(d!=dim-1)
+                    printf(",");
+            #endif
         }
+
+        #ifdef DEBUG
+            printf(")\n");
+        #endif
+
         delta = 0;
         gamma = 0;
     }
@@ -242,9 +259,14 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
+        #ifdef DEBUG
+            printf("\nOnly 2 points in the set, projections are the points themselves\n");
+        #endif
+
         for(int i = 0; i < dim; i++) {
             proj_table[0][i] = points[current_set[0]][i];
             proj_table[1][i] = points[current_set[1]][i];
+            
         }
     }
 
