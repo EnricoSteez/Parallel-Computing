@@ -23,12 +23,6 @@ double ** points;
 int dim;
 long np;
 
-int find_extremes(node * a, node * b){
-    
-    //TODO
-
-    return 0;
-}
 
 void print_point(double* point, int dim) {
     int j;
