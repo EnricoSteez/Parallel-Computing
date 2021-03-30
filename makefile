@@ -7,5 +7,5 @@ ballAlg: ballAlg.c
 debug: ballAlg.c
 	$(CC) -o ballAlg ballAlg.c $(CFLAGS) -DDEBUG
 
-ballAlgOMP: ballAlg-omp.c
+parallel: ballAlg-omp.c
 	$(CC) -o ballAlg-omp ballAlg-omp.c $(CFLAGS)
