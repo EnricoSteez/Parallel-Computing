@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "gen_points.c"
+#include <omp.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"

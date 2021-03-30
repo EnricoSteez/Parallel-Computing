@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "gen_points.c"
+#include <omp.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
@@ -67,7 +68,6 @@ struct IndexCoord* project_on_dimension_and_sort(long current_set_size, long* cu
 
     qsort(oneDim_projection, current_set_size, sizeof(struct IndexCoord), compare); 
 
-
     return oneDim_projection;
 }
 
@@ -82,7 +82,7 @@ double* find_median(long current_set_size, long* current_set, struct IndexCoord 
         }
 
         // Divide the arrays
-        for(int p = 0; p < ((current_set_size-1)/2); p++){
+        for(long p = 0; p < ((current_set_size-1)/2); p++){
             *(L + p) = current_set[oneDim_projection[p].idx];
             *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
         }
@@ -95,15 +95,13 @@ double* find_median(long current_set_size, long* current_set, struct IndexCoord 
         for(int i = 0; i < dim; i++){
             median_point[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
         }
-        for(int p = 0; p < (current_set_size / 2); p++){
+        for(long p = 0; p < (current_set_size / 2); p++){
             *(L + p) = current_set[oneDim_projection[p].idx];
             *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
         }
     }
 
-
     return median_point;
-
     // We need to divide the points still and return as an input parameter
 }
 
@@ -122,7 +120,6 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
         }
         phi = delta / gamma;
 
-
         for(d = 0; d < dim; d++){
             a = points[furthest_points[0]][d];
             b = points[furthest_points[1]][d];
@@ -133,9 +130,7 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
         delta = 0;
         gamma = 0;
     }
-
 }
-
 
 double distance_between_points(double* point1, double* point2) {
     int i;
@@ -180,7 +175,7 @@ void furthest_points(long furthest[], long* current_set, long current_set_size) 
     furthest[1] =furthest_point_from_point(points[a], current_set, current_set_size);
 }
 
-struct node* build_tree(int node_index, long* current_set, long current_set_size) {
+struct node* build_tree(long node_index, long* current_set, long current_set_size) {
     /**
      * 
      * NOTE:
@@ -198,6 +193,12 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
         res->right = NULL;
         res->radius = 0;
 
+        printf("%d -1 -1 %lf ", node_index, res->radius);
+
+        for(int i=0 ; i<dim; i++){
+            printf("%lf ",res->coordinates[i]);
+        }
+        printf("\n");
         return res;
     }    
 
@@ -213,11 +214,9 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
-        
         for(int i = 0; i < dim; i++) {
             proj_table[0][i] = points[current_set[0]][i];
             proj_table[1][i] = points[current_set[1]][i];
-            
         }
     }
 
@@ -238,15 +237,13 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     L = (long*)malloc(L_size * sizeof(long));
     R = (long*)malloc(R_size * sizeof(long));
 
-
     //compute the center, defined as the median point over all projections;
     //oneDim_projection are the points projected on one dimension, ready to find the median point
     double* median = find_median(current_set_size, current_set, oneDim_projection, proj_table, R, L);
 
     
     free(oneDim_projection);
-    //proj table should be dynamically alocated with malloc in order to free
-
+    //proj table should be dynamically allocated with malloc in order to free
 
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = median;
@@ -255,13 +252,21 @@ struct node* build_tree(int node_index, long* current_set, long current_set_size
     res->left = build_tree(node_index + 1, L, L_size);
     res->right = build_tree(node_index + 1 + (L_size*2-1), R, R_size);
 
+    
+    printf("%d %d %d %lf ", node_index, res->left->id, res->right->id, res->radius);
 
+    #pragma omp parallel for
+    for(int i=0 ; i<dim; i++){
+        printf("%lf ",res->coordinates[i]);
+    }
+    printf("\n");
     return res;
 }
 
 
 int main(int argc, char **argv){
-
+    double exec_time;
+    exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
 
     points = get_points(argc, argv, &dim, &np);
@@ -269,47 +274,18 @@ int main(int argc, char **argv){
     int j;
 
     long* current_set = (long*) malloc(np * sizeof(long));
+
+    #pragma omp parallel for
     for(j = 0; j < np; j++) {
         current_set[j] = j;
     }
 
+    printf("%d %d\n", dim,np);
+
     struct node* tree = build_tree(0, current_set, np);
 
-    printf("root:\n");
-    print_point(tree->coordinates, dim);
-    printf("radius: %lf\n", tree->radius);
-
-    printf("left:\n");
-    print_point(tree->left->coordinates, dim);
-    printf("radius: %lf\n", tree->left->radius);
-
-    printf("left-left:\n");
-    print_point(tree->left->left->coordinates, dim);
-    printf("radius: %lf\n", tree->left->left->radius);
-
-    printf("left-right:\n");
-    print_point(tree->left->right->coordinates, dim);
-    printf("radius: %lf\n", tree->left->right->radius);
-
-    printf("right:\n");
-    print_point(tree->right->coordinates, dim);
-    printf("radius: %lf\n", tree->right->radius);
-
-    printf("right-left:\n");
-    print_point(tree->right->left->coordinates, dim);
-    printf("radius: %lf\n", tree->right->left->radius);
-
-    printf("right-right:\n");
-    print_point(tree->right->right->coordinates, dim);
-    printf("radius: %lf\n", tree->right->right->radius);
-
-    printf("right-right-left:\n");
-    print_point(tree->right->right->left->coordinates, dim);
-    printf("radius: %lf\n", tree->right->right->left->radius);
-
-    printf("right-right-right:\n");
-    print_point(tree->right->right->right->coordinates, dim);
-    printf("radius: %lf\n", tree->right->right->right->radius);
+    exec_time += omp_get_wtime();
+    fprintf(stderr, "%.1lf\n", exec_time); 
 
     return 0;
 }
