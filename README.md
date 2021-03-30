@@ -1,5 +1,14 @@
-Use `make` to compile with gcc-10 and optimisation flags.
+`make` to compile with gcc-10 and optimisation flags.
 
-Use `make debug` to enable debugging prints
+`make debug` to enable debugging prints
 
-Use `make parallel` to compile the Parallel version
+`make parallel` to compile the Parallel version
+
+Usage: 
+`./ballAlg <dim> <np> <seed> > /path/filename.tree`
+...exec_time displayed...
+
+To see the results on stdout, omit the output redirection
+
+To test the correctness of results: see Index Page on Fénix
+

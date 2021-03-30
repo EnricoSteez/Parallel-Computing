@@ -8,4 +8,4 @@ debug: ballAlg.c
 	$(CC) -o ballAlg ballAlg.c $(CFLAGS) -DDEBUG
 
 parallel: ballAlg-omp.c
-	$(CC) -o ballAlg-omp ballAlg-omp.c $(CFLAGS)
+	$(CC) -o ballAlg ballAlg-omp.c $(CFLAGS)
