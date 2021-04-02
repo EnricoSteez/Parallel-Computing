@@ -15,9 +15,9 @@ typedef struct node {
     struct node* right;
 } node;
 
-struct IndexCoord {
+struct ProjectedPoint {
     long idx;
-    double coord;
+    double *projectedCoords;
 };
 
 double ** points;
@@ -39,7 +39,7 @@ void print_point(double* point, int dim) {
 
 static int compare (const void * a, const void * b)
 {
-    double diff = ( (*(struct IndexCoord *) a).coord - (*(struct IndexCoord*) b).coord );
+    double diff = ( (*(struct ProjectedPoint *) a).projectedCoords[0] - (*(struct ProjectedPoint*) b).projectedCoords[0] );
     if(diff < 0) {
         return -1;
     }
@@ -49,96 +49,47 @@ static int compare (const void * a, const void * b)
     return 0;
 }
 
-struct IndexCoord* project_on_dimension_and_sort(long current_set_size, long* current_set, double proj_table[][dim], long a, long b){
-    struct IndexCoord* oneDim_projection = 
-        (struct IndexCoord*) malloc(sizeof(struct IndexCoord)*current_set_size);
 
-    double coord = 0;
-    
-    for(int i = 0; i < dim; i++){
-        #pragma omp parallel for
-        for(long p = 0; p < current_set_size; p++){
-            oneDim_projection[p].coord = proj_table[p][i];
-            oneDim_projection[p].idx = p;
-        }
+double* find_center_and_rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
 
-        if(current_set_size > 1 && proj_table[a][i] != proj_table[b][i])
-            break;
-    }
-
-    qsort(oneDim_projection, current_set_size, sizeof(struct IndexCoord), compare); 
-
-    return oneDim_projection;
-}
-
-double* find_center_and_rearrange_set(long current_set_size, long* current_set, struct IndexCoord oneDim_projection[], double proj_table[][dim]){
-
-    //return value for the median point
-    double* center = (double*)malloc(dim * sizeof(double));
-    long* tmp = (long*)malloc(current_set_size * sizeof(long));
-    memcpy(tmp,current_set,current_set_size);
-
-    printf("Set of indices:\n");
-    for(int i=0;i<current_set_size;i++){
-        printf("%d-%d\n",current_set[i],tmp[i]);
-    }
-
-    long idx;
     long lindex=0;
-    long rindex;
-    double* point;
+    double* pointProjection;
+    long rindex = current_set_size/2;
+    double* center = (double *) malloc(dim*sizeof(double));
 
     if((current_set_size % 2) != 0){//ODD SET
-        // R set starts one position to the right of the center, we add the center at the end
-        
-        rindex = current_set_size/2+1;
-        long idx_median = oneDim_projection[(current_set_size - 1) / 2].idx;
-
-        //center to be returned
-        #pragma omp parallel for
-        for(int i = 0; i < dim; i++){
-            center[i] = proj_table[idx_median][i];
-        }
+        long idx_median = current_set_size / 2;
+        memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
     }
+
     else{ //EVEN SET
-        rindex = current_set_size/2;
-        long idx_median_1 = oneDim_projection[current_set_size / 2].idx;
-        long idx_median_2 = oneDim_projection[(current_set_size / 2) - 1].idx;
+
+        long idx_median_1 = current_set_size / 2 -1;
+        long idx_median_2 = current_set_size / 2;
 
         //center to be returned
-        #pragma omp parallel for
         for(int i = 0; i < dim; i++){
-            center[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
+            center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
         }
     }
 
     for(long i=0; i < current_set_size; i++){
-        idx = tmp[i];
-        point = points[idx];
 
-        printf("Evaluating index %d",idx);
-        print_point(point,2);
-
-        if(point[0] < center[0]){
-            printf("Point %d has x=%f < centerX=%f\n",i,point[0],center[0]);
-            *(current_set+lindex) = idx;
+        if(proj_table[i].projectedCoords[0] < center[0]){
+            *(current_set+lindex) = proj_table[i].idx;
             lindex++;
-            printf("Point to L, lindex = %d\n",lindex);
         }
         else{
-            *(current_set+rindex) = idx;
+            *(current_set+rindex) = proj_table[i].idx;
             rindex++;
-            printf("Point to R, rindex = %d\n",rindex);
         }
     }
 
-
-    free(tmp);
     return center;
 }
 
 
-void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, double proj_table[][dim]){
+void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
@@ -153,12 +104,15 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
         }
         phi = delta / gamma;
 
+        proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
+
         for(d = 0; d < dim; d++){
             a = points[furthest_points[0]][d];
             b = points[furthest_points[1]][d];
-            proj_table[p][d] = phi * (b - a) + a;
-            
+            proj_table[p].projectedCoords[d] = phi * (b - a) + a;
         }
+
+        proj_table[p].idx = current_set[p];
 
         delta = 0;
         gamma = 0;
@@ -209,16 +163,7 @@ void furthest_points(long furthest[], long* current_set, long current_set_size) 
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size) {
-    /**
-     * 
-     * NOTE:
-     * current_set: array of size current_set_size containing the indices of the original array (points) that we are currently working on
-     * proj_table: array of size current_set_size containing the corresponding projection to each point in point[current_set[i]]
-     * oneDim_projection: array of size current_set_size containing the corresponding one dimension point to each point in proj_table
-     *
-     * */
-
-    fprintf(stderr, "FUNCTION INVOCATION WITH SET OF %d POINTS\n",current_set_size);
+    
     if(current_set_size == 1) {
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
@@ -232,9 +177,12 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         return res;
     }    
 
-    double proj_table[current_set_size][dim];
     long a;
     long b;
+
+    struct ProjectedPoint* proj_table;
+    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
+    
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
@@ -246,28 +194,32 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
-        for(int i = 0; i < dim; i++) {
-            proj_table[0][i] = points[current_set[0]][i];
-            proj_table[1][i] = points[current_set[1]][i];
-        }
         a = current_set[0];
         b = current_set[1];
-    }
+        proj_table[0].idx = a;
+        proj_table[1].idx = b;
 
-    // fprintf(stderr, "BEFORE PROJ ONE DIMENSION AND SORT\n"); 
+        proj_table[0].projectedCoords = (double*) malloc(dim * sizeof(double));
+        proj_table[1].projectedCoords = (double*) malloc(dim * sizeof(double));
+
+        for(int i = 0; i < dim; i++) {
+            proj_table[0].projectedCoords[i] = points[a][i];
+            proj_table[1].projectedCoords[i] = points[b][i];
+        }
+    }
+    
     //proj_table are the points on line ab and this function projects them onto one single dimension
     //a and b are the indexes of the furthest points of this current_set
-    struct IndexCoord* oneDim_projection = project_on_dimension_and_sort(current_set_size, current_set, proj_table, a, b);
 
-    // fprintf(stderr, "AFTER PROJ ONE DIMENSION AND SORT\n");
+    qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
+
+
     //compute the center, defined as the median point over all projections;
-    //oneDim_projection are the points projected on one dimension, ready to find the median point
-    double* center = find_center_and_rearrange_set(current_set_size, current_set, oneDim_projection, proj_table);
+    double* center = find_center_and_rearrange_set(current_set_size, current_set, proj_table);
 
-    fprintf(stderr, "AFTER FIND CENTER\n");
-
-    free(oneDim_projection);
     //proj table should be dynamically allocated with malloc in order to free
+
+    free(proj_table);
 
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
@@ -277,10 +229,8 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     res->radius = find_radius(center, current_set, current_set_size);
     res->id = node_index;
     res->left = build_tree(node_index + 1, current_set, nextLeftSize);
-    res->right = build_tree(node_index + current_set_size, current_set+current_set_size/2, nextRightSize);
+    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize);
     n_nodes++;
-
-    fprintf(stderr, "AFTER RECURSIVE CALLS\n");
 
     return res;
 }
@@ -298,7 +248,7 @@ void dump_tree(struct node *node){
     for(int i=0; i<dim; i++){
         printf("%lf ",node->coordinates[i]);
     }
-    printf("\n");
+    printf("\n"); fflush(stdin);
 
     if(node->left != NULL){
         dump_tree(node->left);
@@ -321,6 +271,7 @@ int main(int argc, char **argv){
     }
 
     n_nodes = 0;
+    fprintf(stderr,"Allocated all the points\n");
     struct node* tree = build_tree(0, current_set, np);
 
     exec_time += omp_get_wtime();
