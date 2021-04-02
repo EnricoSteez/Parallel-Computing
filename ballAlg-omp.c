@@ -2,6 +2,7 @@
 #include <math.h>
 #include "gen_points.c"
 #include <omp.h>
+#include <string.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
@@ -33,6 +34,7 @@ void print_point(double* point, int dim) {
         else printf("%.1lf", point[j]);
     }
     printf(")\n");
+    fflush(stdin);
 }
 
 static int compare (const void * a, const void * b)
@@ -69,72 +71,72 @@ struct IndexCoord* project_on_dimension_and_sort(long current_set_size, long* cu
     return oneDim_projection;
 }
 
-double* find_median(long current_set_size, long* current_set, struct IndexCoord oneDim_projection[], double proj_table[][dim], long* R, long* L){
-    
+double* find_center_and_rearrange_set(long current_set_size, long* current_set, struct IndexCoord oneDim_projection[], double proj_table[][dim]){
+
     //return value for the median point
-    double* median_point = (double*)malloc(dim*sizeof(double));
+    double* center = (double*)malloc(dim * sizeof(double));
+    long* tmp = (long*)malloc(current_set_size * sizeof(long));
+    memcpy(tmp,current_set,current_set_size);
+
+    printf("Set of indices:\n");
+    for(int i=0;i<current_set_size;i++){
+        printf("%d-%d\n",current_set[i],tmp[i]);
+    }
+
+    long idx;
+    long lindex=0;
+    long rindex;
+    double* point;
 
     if((current_set_size % 2) != 0){//ODD SET
+        // R set starts one position to the right of the center, we add the center at the end
+        
+        rindex = current_set_size/2+1;
         long idx_median = oneDim_projection[(current_set_size - 1) / 2].idx;
 
-            #pragma omp parallel for
-            for(int i = 0; i < dim; i++){
-                median_point[i] = proj_table[idx_median][i];
-            }
-
-            #pragma omp parallel sections
-            {
-                #pragma omp section
-                {
-                    #pragma omp parallel for              
-                    for(long p = 0; p < ((current_set_size-1)/2); p++){
-                        *(L + p) = current_set[oneDim_projection[p].idx];
-                    }
-                }
-                #pragma omp section
-                {
-                    #pragma omp parallel for
-                    for(long p = 0; p < ((current_set_size-1)/2); p++){
-                        *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
-                    }
-                }
-            }
-            //middle point belongs to Right set
-            *(R + (current_set_size-1)/2) = current_set[oneDim_projection[(current_set_size-1)/2].idx];
-
+        //center to be returned
+        #pragma omp parallel for
+        for(int i = 0; i < dim; i++){
+            center[i] = proj_table[idx_median][i];
+        }
     }
     else{ //EVEN SET
-
+        rindex = current_set_size/2;
         long idx_median_1 = oneDim_projection[current_set_size / 2].idx;
         long idx_median_2 = oneDim_projection[(current_set_size / 2) - 1].idx;
 
+        //center to be returned
         #pragma omp parallel for
         for(int i = 0; i < dim; i++){
-            median_point[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
-        }
-
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            {
-                #pragma omp parallel for
-                for(long p = 0; p < (current_set_size / 2); p++){
-                    *(L + p) = current_set[oneDim_projection[p].idx];
-                }
-            }
-            #pragma omp section
-            {
-                #pragma omp parallel for
-                for(long p = 0; p < (current_set_size / 2); p++){
-                    *(R + p) = current_set[oneDim_projection[current_set_size-1-p].idx];
-                }
-            }
+            center[i] = (proj_table[idx_median_1][i] + proj_table[idx_median_2][i]) / 2;
         }
     }
 
-    return median_point;
-    // We need to divide the points still and return as an input parameter
+    for(long i=0; i < current_set_size; i++){
+        idx = tmp[i];
+        point = points[idx];
+
+        printf("Evaluating index %d",idx);
+        print_point(point,2);
+
+        if(point[0] < center[0]){
+            printf("Point %d has x=%f < centerX=%f\n",i,point[0],center[0]);
+            *(current_set+lindex) = idx;
+            lindex++;
+            printf("Point to L, lindex = %d\n",lindex);
+        }
+        else{
+            *(current_set+rindex) = idx;
+            rindex++;
+            printf("Point to R, rindex = %d\n",rindex);
+        }
+    }
+
+
+    free(tmp);
+    return center;
 }
+
 
 void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, double proj_table[][dim]){
     double delta = 0, gamma = 0, phi = 0;
@@ -215,6 +217,8 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
      * oneDim_projection: array of size current_set_size containing the corresponding one dimension point to each point in proj_table
      *
      * */
+
+    fprintf(stderr, "FUNCTION INVOCATION WITH SET OF %d POINTS\n",current_set_size);
     if(current_set_size == 1) {
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
@@ -246,7 +250,6 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
             proj_table[0][i] = points[current_set[0]][i];
             proj_table[1][i] = points[current_set[1]][i];
         }
-        
         a = current_set[0];
         b = current_set[1];
     }
@@ -257,38 +260,28 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     struct IndexCoord* oneDim_projection = project_on_dimension_and_sort(current_set_size, current_set, proj_table, a, b);
 
     // fprintf(stderr, "AFTER PROJ ONE DIMENSION AND SORT\n");
-    long* L;
-    long* R;
-    long L_size, R_size;
-    if((current_set_size % 2) != 0){
-        L_size = (current_set_size-1)/2;
-        R_size = (current_set_size+1)/2;
-    }
-    else {
-        L_size = current_set_size/2;
-        R_size = current_set_size/2;
-    }
-    L = (long*)malloc(L_size * sizeof(long));
-    R = (long*)malloc(R_size * sizeof(long));
-
-    // fprintf(stderr, "AFTER CREATION OF L AND R\n");
-
     //compute the center, defined as the median point over all projections;
     //oneDim_projection are the points projected on one dimension, ready to find the median point
-    double* median = find_median(current_set_size, current_set, oneDim_projection, proj_table, R, L);
-    // fprintf(stderr, "AFTER FIND MEDIAN\n");
+    double* center = find_center_and_rearrange_set(current_set_size, current_set, oneDim_projection, proj_table);
+
+    fprintf(stderr, "AFTER FIND CENTER\n");
 
     free(oneDim_projection);
     //proj table should be dynamically allocated with malloc in order to free
 
+    long nextLeftSize = current_set_size/2;
+    long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
+
     struct node* res = (struct node*)malloc(sizeof(struct node));
-    res->coordinates = median;
-    res->radius = find_radius(median, current_set, current_set_size);
+    res->coordinates = center;
+    res->radius = find_radius(center, current_set, current_set_size);
     res->id = node_index;
-    res->left = build_tree(node_index + 1, L, L_size);
-    res->right = build_tree(node_index + 1 + (L_size*2-1), R, R_size);
+    res->left = build_tree(node_index + 1, current_set, nextLeftSize);
+    res->right = build_tree(node_index + current_set_size, current_set+current_set_size/2, nextRightSize);
     n_nodes++;
-    
+
+    fprintf(stderr, "AFTER RECURSIVE CALLS\n");
+
     return res;
 }
 
@@ -323,7 +316,6 @@ int main(int argc, char **argv){
 
     long* current_set = (long*) malloc(np * sizeof(long));
 
-    #pragma omp parallel for
     for(int j = 0; j < np; j++) {
         current_set[j] = j;
     }
