@@ -233,7 +233,7 @@ void dump_tree(struct node *node){
     printf("%ld ", node->id);
 
     if(node->left != NULL)
-        printf("%ld %d ", node->left->id, node->right->id);
+        printf("%ld %ld ", node->left->id, node->right->id);
     else
         printf("-1 -1 ");
 
@@ -272,7 +272,7 @@ int main(int argc, char **argv){
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time); 
 
-    printf("%d %d\n",dim,n_nodes);
+    printf("%d %ld\n",dim,n_nodes);
     dump_tree(tree);
 
     return 0;

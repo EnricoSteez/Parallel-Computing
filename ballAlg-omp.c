@@ -7,6 +7,8 @@
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
+#define NUM_THREADS 4
+
 typedef struct node {
     long id;
     double* coordinates;
@@ -129,24 +131,24 @@ double find_radius(double *center, long* current_set, long current_set_size){
     // //Maybe using the critical region with nowait would do the comparison of the last thread that finishes after the loop
     // //since the other threads will do it as soon as they finish!
     // //so it would be probably more efficient
-    double highest = 0, dist;
-    double globalHighest=0;
+    // double highest = 0, dist;
+    // double globalHighest=0;
 
-    #pragma omp parallel 
-    {
-        #pragma omp for reduction(max:highest)
-        for(long i=0; i<current_set_size; i++){
-            dist = distance_between_points(center, points[current_set[i]]);
-            if(dist>highest)
-                highest = dist;
-        }
-        //fprintf(stderr,"Thread %d finished\n",omp_get_thread_num());
-    }
+    // #pragma omp parallel 
+    // {
+    //     #pragma omp for reduction(max:highest)
+    //     for(long i=0; i<current_set_size; i++){
+    //         dist = distance_between_points(center, points[current_set[i]]);
+    //         if(dist>highest)
+    //             highest = dist;
+    //     }
+    //     //fprintf(stderr,"Thread %d finished\n",omp_get_thread_num());
+    // }
 
     
 
 
-    return highest;
+    // return highest;
 
     // double localMax=0, dist, globalMax=0;
     // #pragma omp parallel private(localMax, dist) shared(globalMax)
@@ -167,25 +169,28 @@ double find_radius(double *center, long* current_set, long current_set_size){
     // return globalMax;
 
 
-    // double highest = 0, dist;
-    // double globalHighest=0;
+    double highest = 0, dist;
+    double globalHighest=0;
 
-    // for(long i=0; i<current_set_size; i++){
-    //     dist = distance_between_points(center, points[current_set[i]]);
-    //     if(dist>highest)
-    //         highest = dist;
-    // }
+    for(long i=0; i<current_set_size; i++){
+        dist = distance_between_points(center, points[current_set[i]]);
+        if(dist>highest)
+            highest = dist;
+    }
 
-    // return highest;
+    return highest;
 
 }
 
 long furthest_point_from_point(double* point, long* current_set, long current_set_size) {
+
     // long i, local_max_index=0, global_max_index=0;
     // double aux, local_max=0, global_max=0;
+
     
-    // #pragma omp parallel private(aux, local_max, local_max_index) shared(global_max, global_max_index)
+    // #pragma omp parallel firstprivate(aux, local_max, local_max_index, i) shared(global_max, global_max_index)
     // {
+
     //     #pragma omp for nowait
     //     for (i = 0; i < current_set_size; i++) {
     //         if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
@@ -199,6 +204,7 @@ long furthest_point_from_point(double* point, long* current_set, long current_se
     //         if(local_max > global_max){
     //             global_max = local_max;
     //             global_max_index = local_max_index;
+                
     //         }
     //     }
     // }
@@ -229,7 +235,10 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size)
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size) {
-    
+
+    #pragma omp atomic
+    n_nodes++;
+
     if(current_set_size == 1) {
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
@@ -238,7 +247,6 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->left = NULL;
         res->right = NULL;
         res->radius = 0;
-        n_nodes++;
 
         return res;
     }    
@@ -298,9 +306,10 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     res->coordinates = center;
     res->radius = find_radius(center, current_set, current_set_size);
     res->id = node_index;
+    #pragma omp task
     res->left = build_tree(node_index + 1, current_set, nextLeftSize);
+    #pragma omp task
     res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize);
-    n_nodes++;
 
     return res;
 }
@@ -309,7 +318,7 @@ void dump_tree(struct node *node){
     printf("%ld ", node->id);
 
     if(node->left != NULL)
-        printf("%ld %d ", node->left->id, node->right->id);
+        printf("%ld %ld ", node->left->id, node->right->id);
     else
         printf("-1 -1 ");
 
@@ -329,8 +338,18 @@ void dump_tree(struct node *node){
 
 int main(int argc, char **argv){
     double exec_time;
-
-    // fprintf(stderr, "%d\n", omp_get_num_procs()); 
+    struct node* tree;
+    int nthreads = 0;
+    if(argc == 5) {
+        nthreads = atoi(argv[4]);
+        argc = argc-1;
+    }
+    else {
+        nthreads = NUM_THREADS;
+    }
+    omp_set_nested(1);
+    omp_set_num_threads(nthreads);
+    fprintf(stderr, "number of threads: %d\n", nthreads); 
     exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
 
@@ -345,12 +364,17 @@ int main(int argc, char **argv){
 
     n_nodes = 0;
 
-    struct node* tree = build_tree(0, current_set, np);
+    #pragma omp parallel
+    #pragma omp single
+    {
+        tree = build_tree(0, current_set, np);
+    } 
+    
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time); 
 
-    printf("%d %d\n",dim,n_nodes);
+    printf("%d %ld\n",dim,n_nodes);
     dump_tree(tree);
 
     return 0;
