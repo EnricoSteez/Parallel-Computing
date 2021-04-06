@@ -61,34 +61,27 @@ double* find_center_and_rearrange_set(long current_set_size, long* current_set, 
         long idx_median = current_set_size / 2;
         memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
     }
-
     else{ //EVEN SET
 
         long idx_median_1 = current_set_size / 2 -1;
         long idx_median_2 = current_set_size / 2;
 
         //center to be returned
+        // #pragma omp parallel for
         for(int i = 0; i < dim; i++){
             center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
         }
     }
 
+    // #pragma omp parallel for
     for(long i=0; i < current_set_size; i++){
-
-        if(proj_table[i].projectedCoords[0] < center[0]){
-            *(current_set+lindex) = proj_table[i].idx;
-            lindex++;
-        }
-        else{
-            *(current_set+rindex) = proj_table[i].idx;
-            rindex++;
-        }
+        *(current_set+i) = proj_table[i].idx;
     }
-
+    
     return center;
 }
 
-
+//TODO PARALLELISE THIS MESS
 void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
@@ -122,39 +115,112 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
 double distance_between_points(double* point1, double* point2) {
     int i;
     double sum = 0;
+    //#pragma omp parallel for reduction(+:sum)
     for (i = 0; i < dim; i++) {
         sum += pow(point2[i] - point1[i], 2);
     }
     return sqrt(sum*1.0);
 }
 
-double find_radius(double *median_point, long* current_set, long current_set_size){
+double find_radius(double *center, long* current_set, long current_set_size){
     
+    // //TODO ASK THE PROFESSOR
+    // //Does this imply that all the computation is done after the barrier?
+    // //Maybe using the critical region with nowait would do the comparison of the last thread that finishes after the loop
+    // //since the other threads will do it as soon as they finish!
+    // //so it would be probably more efficient
     double highest = 0, dist;
-    for(long i=0; i<current_set_size; i++){
-        dist = distance_between_points(median_point, points[current_set[i]]);
-        if(dist>highest)
-            highest = dist;
+    double globalHighest=0;
+
+    #pragma omp parallel 
+    {
+        #pragma omp for reduction(max:highest)
+        for(long i=0; i<current_set_size; i++){
+            dist = distance_between_points(center, points[current_set[i]]);
+            if(dist>highest)
+                highest = dist;
+        }
+        //fprintf(stderr,"Thread %d finished\n",omp_get_thread_num());
     }
+
+    
+
+
     return highest;
+
+    // double localMax=0, dist, globalMax=0;
+    // #pragma omp parallel private(localMax, dist) shared(globalMax)
+    // {
+    //     #pragma omp for nowait
+    //     for(long i=0; i<current_set_size; i++){
+    //         dist = distance_between_points(center, points[current_set[i]]);
+    //         if(dist>localMax)
+    //         localMax = dist;
+    //     }
+
+    //     #pragma omp critical
+    //     {
+    //         globalMax = localMax > globalMax ? localMax : globalMax;
+    //     }
+    // }
+    
+    // return globalMax;
+
+
+    // double highest = 0, dist;
+    // double globalHighest=0;
+
+    // for(long i=0; i<current_set_size; i++){
+    //     dist = distance_between_points(center, points[current_set[i]]);
+    //     if(dist>highest)
+    //         highest = dist;
+    // }
+
+    // return highest;
+
 }
 
 long furthest_point_from_point(double* point, long* current_set, long current_set_size) {
-    long i, max_index;
-    double aux, max = 0;
+    // long i, local_max_index=0, global_max_index=0;
+    // double aux, local_max=0, global_max=0;
+    
+    // #pragma omp parallel private(aux, local_max, local_max_index) shared(global_max, global_max_index)
+    // {
+    //     #pragma omp for nowait
+    //     for (i = 0; i < current_set_size; i++) {
+    //         if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
+    //             local_max = aux;
+    //             local_max_index = current_set[i];
+    //         }
+    //     }
 
+    //     #pragma omp critical
+    //     {
+    //         if(local_max > global_max){
+    //             global_max = local_max;
+    //             global_max_index = local_max_index;
+    //         }
+    //     }
+    // }
+
+    // return global_max_index;
+
+    long i, local_max_index=0;
+    double aux;
+    double local_max=0;
+    
     for (i = 0; i < current_set_size; i++) {
-        if((aux = distance_between_points(point, points[current_set[i]])) > max) {
-            max = aux;
-            max_index = current_set[i];
+
+        if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
+            local_max = aux;
+            local_max_index = current_set[i];
         }
     }
-
-    return max_index;
+    return local_max_index;
 }
 
-//returns the indices of the 2 furthest points
-void furthest_points(long furthest[], long* current_set, long current_set_size) {
+//sets furthest[] to the indices of the 2 furthest points
+void furthest_points(long furthest[2], long* current_set, long current_set_size) {
     double* first_point = points[current_set[0]];
     long a = furthest_point_from_point(first_point, current_set, current_set_size);
 
@@ -186,10 +252,14 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
+        // fprintf(stderr, "Calculate furthest points\n"); 
+
         furthest_points(furthest, current_set, current_set_size);
         a = furthest[0];
         b = furthest[1];
         //perform the orthogonal projection of all points onto line ab;
+        // fprintf(stderr, "Make orth proj\n"); 
+
         orthogonal_projection(current_set_size, current_set, furthest, proj_table);
     }
     else {
@@ -211,13 +281,13 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     //proj_table are the points on line ab and this function projects them onto one single dimension
     //a and b are the indexes of the furthest points of this current_set
 
+
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
 
-
     //compute the center, defined as the median point over all projections;
-    double* center = find_center_and_rearrange_set(current_set_size, current_set, proj_table);
+    // fprintf(stderr, "find_center and update current_set"); 
 
-    //proj table should be dynamically allocated with malloc in order to free
+    double* center = find_center_and_rearrange_set(current_set_size, current_set, proj_table);
 
     free(proj_table);
 
@@ -259,6 +329,8 @@ void dump_tree(struct node *node){
 
 int main(int argc, char **argv){
     double exec_time;
+
+    // fprintf(stderr, "%d\n", omp_get_num_procs()); 
     exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
 
@@ -266,12 +338,13 @@ int main(int argc, char **argv){
 
     long* current_set = (long*) malloc(np * sizeof(long));
 
+    // #pragma omp parallel for
     for(int j = 0; j < np; j++) {
         current_set[j] = j;
     }
 
     n_nodes = 0;
-    fprintf(stderr,"Allocated all the points\n");
+
     struct node* tree = build_tree(0, current_set, np);
 
     exec_time += omp_get_wtime();
