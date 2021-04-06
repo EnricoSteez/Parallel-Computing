@@ -73,7 +73,6 @@ double* find_center_and_rearrange_set(long current_set_size, long* current_set, 
         }
     }
 
-
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
     }
@@ -123,20 +122,13 @@ double distance_between_points(double* point1, double* point2) {
     return sqrt(sum*1.0);
 }
 
-double find_radius(double *median_point, long* current_set, long current_set_size){
+double find_radius(double *center, long* current_set, long current_set_size){
     
     double highest = 0, dist;
     double globalHighest=0;
 
-    //TODO ASK THE PROFESSOR
-    //Does this imply that all the computation is done after the barrier?
-    //Maybe using the critical region with nowait would do the comparison of the last thread that finishes after the loop
-    //since the other threads will do it as soon as they finish!
-    //so it would be probably more efficient
-
-
     for(long i=0; i<current_set_size; i++){
-        dist = distance_between_points(median_point, points[current_set[i]]);
+        dist = distance_between_points(center, points[current_set[i]]);
         if(dist>highest)
             highest = dist;
     }
@@ -145,8 +137,8 @@ double find_radius(double *median_point, long* current_set, long current_set_siz
 }
 
 long furthest_point_from_point(double* point, long* current_set, long current_set_size) {
-    long i, local_max_index, global_max_index;
-    double aux, global_max=0;
+    long i, local_max_index=0;
+    double aux;
     double local_max=0;
     
     for (i = 0; i < current_set_size; i++) {
@@ -155,12 +147,7 @@ long furthest_point_from_point(double* point, long* current_set, long current_se
             local_max_index = current_set[i];
         }
     }
-
-    if(local_max > global_max){
-        global_max = local_max;
-        global_max_index = local_max_index;
-    }
-    return global_max_index;
+    return local_max_index;
 }
 
 //sets furthest[] to the indices of the 2 furthest points
