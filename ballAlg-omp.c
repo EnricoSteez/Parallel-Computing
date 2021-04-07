@@ -7,7 +7,7 @@
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
-#define NUM_THREADS 4
+#define NUM_THREADS 2
 
 typedef struct node {
     long id;
@@ -52,14 +52,17 @@ static int compare (const void * a, const void * b)
 }
 
 
-double* find_center_and_rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
+double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
 
     long lindex=0;
     double* pointProjection;
     long rindex = current_set_size/2;
     double* center = (double *) malloc(dim*sizeof(double));
 
+
     if((current_set_size % 2) != 0){//ODD SET
+
+
         long idx_median = current_set_size / 2;
         memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
     }
@@ -74,13 +77,19 @@ double* find_center_and_rearrange_set(long current_set_size, long* current_set, 
             center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
         }
     }
+    
+    return center;
+}
+
+void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
 
     // #pragma omp parallel for
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
+
     }
-    
-    return center;
+
+
 }
 
 //TODO PARALLELISE THIS MESS
@@ -145,9 +154,6 @@ double find_radius(double *center, long* current_set, long current_set_size){
     //     //fprintf(stderr,"Thread %d finished\n",omp_get_thread_num());
     // }
 
-    
-
-
     // return highest;
 
     // double localMax=0, dist, globalMax=0;
@@ -168,14 +174,17 @@ double find_radius(double *center, long* current_set, long current_set_size){
     
     // return globalMax;
 
+    
 
     double highest = 0, dist;
     double globalHighest=0;
-
     for(long i=0; i<current_set_size; i++){
+        
         dist = distance_between_points(center, points[current_set[i]]);
+
         if(dist>highest)
             highest = dist;
+        
     }
 
     return highest;
@@ -285,30 +294,39 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
             proj_table[1].projectedCoords[i] = points[b][i];
         }
     }
-    
-    //proj_table are the points on line ab and this function projects them onto one single dimension
-    //a and b are the indexes of the furthest points of this current_set
-
 
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
 
-    //compute the center, defined as the median point over all projections;
-    // fprintf(stderr, "find_center and update current_set"); 
+    double* center;
 
-    double* center = find_center_and_rearrange_set(current_set_size, current_set, proj_table);
+    // #pragma omp parallel sections
+    // {
+    //     #pragma omp section
+    //     {
+    //         center = find_center(current_set_size, proj_table);
+    //     }
+    //     #pragma omp section
+    //     {
+    //         rearrange_set(current_set_size, current_set, proj_table);
+    //     }
+    // }
+
+    center = find_center(current_set_size, proj_table);
+    rearrange_set(current_set_size, current_set, proj_table);
 
     free(proj_table);
-
-    long nextLeftSize = current_set_size/2;
-    long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
-
+    
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
     res->radius = find_radius(center, current_set, current_set_size);
     res->id = node_index;
+
+    long nextLeftSize = current_set_size/2;
+    long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
+
     #pragma omp task
     res->left = build_tree(node_index + 1, current_set, nextLeftSize);
-    #pragma omp task
+    #pragma omp taskd
     res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize);
 
     return res;
