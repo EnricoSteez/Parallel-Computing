@@ -84,7 +84,7 @@ double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
 
 void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level){
 
-    #pragma omp parallel for if(rec_level<0) //num_threads(nthreads/(rec_level+1))
+    //#pragma omp parallel for num_threads(nthreads/(pow(2,rec_lev)) if(rec_level<2)
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
     }
@@ -141,11 +141,13 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
 
     double highest = 0, dist;
     double globalHighest=0;
+    
+    int n = nthreads/(pow(2,rec_level));
 
-    if(rec_level<2)
-        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,nthreads/(rec_level+1));
+    if(rec_level<3)
+        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,n);
 
-    #pragma omp parallel for reduction(max:highest) num_threads(nthreads/(rec_level+1)) if(rec_level<2)
+    // #pragma omp parallel for reduction(max:highest) num_threads(n) if(rec_level<1)
     for(long i=0; i<current_set_size; i++){
         dist = distance_between_points(center, points[current_set[i]]);
         if(dist>highest)
@@ -264,18 +266,6 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     double* center;
 
-    // #pragma omp parallel sections
-    // {
-    //     #pragma omp section
-    //     {
-    //         center = find_center(current_set_size, proj_table);
-    //     }
-    //     #pragma omp section
-    //     {
-    //         rearrange_set(current_set_size, current_set, proj_table);
-    //     }
-    // }
-
     center = find_center(current_set_size, proj_table);
     rearrange_set(current_set_size, current_set, proj_table, rec_level);
 
@@ -292,9 +282,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(rec_level < 3)
         rec_level++;
 
-    #pragma omp task if(rec_level<2)
+    #pragma omp task if(rec_level<3)
     res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level);
-    #pragma omp task if(rec_level<2)
+    #pragma omp task if(rec_level<3)
     res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level);
 
     return res;
