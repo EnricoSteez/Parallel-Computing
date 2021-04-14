@@ -26,6 +26,7 @@ double ** points;
 int dim;
 long np;
 long n_nodes;
+int nthreads;
 
 void print_point(double* point, int dim) {
     int j;
@@ -81,15 +82,12 @@ double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
     return center;
 }
 
-void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
+void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level){
 
-    // #pragma omp parallel for
+    #pragma omp parallel for if(rec_level<0) //num_threads(nthreads/(rec_level+1))
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
-
     }
-
-
 }
 
 //TODO PARALLELISE THIS MESS
@@ -126,65 +124,32 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
 double distance_between_points(double* point1, double* point2) {
     int i;
     double sum = 0;
-    //#pragma omp parallel for reduction(+:sum)
+
     for (i = 0; i < dim; i++) {
         sum += pow(point2[i] - point1[i], 2);
     }
     return sqrt(sum*1.0);
 }
 
-double find_radius(double *center, long* current_set, long current_set_size){
+double find_radius(double *center, long* current_set, long current_set_size, long rec_level){
     
-    // //TODO ASK THE PROFESSOR
-    // //Does this imply that all the computation is done after the barrier?
-    // //Maybe using the critical region with nowait would do the comparison of the last thread that finishes after the loop
-    // //since the other threads will do it as soon as they finish!
-    // //so it would be probably more efficient
-    // double highest = 0, dist;
-    // double globalHighest=0;
-
-    // #pragma omp parallel 
-    // {
-    //     #pragma omp for reduction(max:highest)
-    //     for(long i=0; i<current_set_size; i++){
-    //         dist = distance_between_points(center, points[current_set[i]]);
-    //         if(dist>highest)
-    //             highest = dist;
-    //     }
-    //     //fprintf(stderr,"Thread %d finished\n",omp_get_thread_num());
-    // }
-
-    // return highest;
-
-    // double localMax=0, dist, globalMax=0;
-    // #pragma omp parallel private(localMax, dist) shared(globalMax)
-    // {
-    //     #pragma omp for nowait
-    //     for(long i=0; i<current_set_size; i++){
-    //         dist = distance_between_points(center, points[current_set[i]]);
-    //         if(dist>localMax)
-    //         localMax = dist;
-    //     }
-
-    //     #pragma omp critical
-    //     {
-    //         globalMax = localMax > globalMax ? localMax : globalMax;
-    //     }
-    // }
-    
-    // return globalMax;
-
-    
+    //TODO ASK THE PROFESSOR
+    //Does this imply that all the computation is done after the barrier?
+    //Maybe using the critical region with nowait would do the comparison of the last thread that finishes after the loop
+    //since the other threads will do it as soon as they finish!
+    //so it would be probably more efficient
 
     double highest = 0, dist;
     double globalHighest=0;
-    for(long i=0; i<current_set_size; i++){
-        
-        dist = distance_between_points(center, points[current_set[i]]);
 
+    if(rec_level<2)
+        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,nthreads/(rec_level+1));
+
+    #pragma omp parallel for reduction(max:highest) num_threads(nthreads/(rec_level+1)) if(rec_level<2)
+    for(long i=0; i<current_set_size; i++){
+        dist = distance_between_points(center, points[current_set[i]]);
         if(dist>highest)
             highest = dist;
-        
     }
 
     return highest;
@@ -243,7 +208,7 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size)
     furthest[1] =furthest_point_from_point(points[a], current_set, current_set_size);
 }
 
-struct node* build_tree(long node_index, long* current_set, long current_set_size) {
+struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level) {
 
     #pragma omp atomic
     n_nodes++;
@@ -312,22 +277,25 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     // }
 
     center = find_center(current_set_size, proj_table);
-    rearrange_set(current_set_size, current_set, proj_table);
+    rearrange_set(current_set_size, current_set, proj_table, rec_level);
 
     free(proj_table);
     
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
-    res->radius = find_radius(center, current_set, current_set_size);
+    res->radius = find_radius(center, current_set, current_set_size,rec_level);
     res->id = node_index;
 
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
-    #pragma omp task
-    res->left = build_tree(node_index + 1, current_set, nextLeftSize);
-    #pragma omp taskd
-    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize);
+    if(rec_level < 3)
+        rec_level++;
+
+    #pragma omp task if(rec_level<2)
+    res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level);
+    #pragma omp task if(rec_level<2)
+    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level);
 
     return res;
 }
@@ -357,7 +325,7 @@ void dump_tree(struct node *node){
 int main(int argc, char **argv){
     double exec_time;
     struct node* tree;
-    int nthreads = 0;
+
     if(argc == 5) {
         nthreads = atoi(argv[4]);
         argc = argc-1;
@@ -385,8 +353,9 @@ int main(int argc, char **argv){
     #pragma omp parallel
     #pragma omp single
     {
-        tree = build_tree(0, current_set, np);
-    } 
+        tree = build_tree(0, current_set, np, 0);
+    }
+
     
 
     exec_time += omp_get_wtime();
