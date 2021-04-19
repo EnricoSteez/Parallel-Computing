@@ -134,7 +134,7 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
     double globalHighest=0;
 
     if(n < 0) {
-        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,n);
+        fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
         #pragma omp parallel for reduction(max:highest) num_threads(n)
         for(long i=0; i<current_set_size; i++){
             dist = distance_between_points(center, points[current_set[i]]);
