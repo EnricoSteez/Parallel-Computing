@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-fopenmp -O3 -lm
+CC=gcc-10
+CFLAGS=-fopenmp -O3
 
 sequential: ballAlg.c
 	$(CC) -o ballAlg-seq ballAlg.c $(CFLAGS)
