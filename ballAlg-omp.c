@@ -328,12 +328,13 @@ int main(int argc, char **argv){
     if(argc == 5) {
         nthreads = atoi(argv[4]);
         argc = argc-1;
+        omp_set_num_threads(nthreads);
     }
     else {
-        nthreads = NUM_THREADS;
+        nthreads = omp_get_num_procs();
     }
     omp_set_nested(1);
-    omp_set_num_threads(nthreads);
+    
     fprintf(stderr, "number of threads: %d\n", nthreads); 
     exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
