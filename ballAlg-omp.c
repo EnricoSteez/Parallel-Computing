@@ -84,7 +84,7 @@ double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
 
 void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level){
 
-    #pragma omp parallel for if(rec_level<0) //num_threads(nthreads/(rec_level+1))
+    //#pragma omp parallel for num_threads(nthreads/(pow(2,rec_lev)) if(rec_level<2)
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
     }
@@ -131,7 +131,7 @@ double distance_between_points(double* point1, double* point2) {
     return sqrt(sum*1.0);
 }
 
-double find_radius(double *center, long* current_set, long current_set_size, long rec_level){
+double find_radius(double *center, long* current_set, long current_set_size, long rec_level, int n){
     
     //TODO ASK THE PROFESSOR
     //Does this imply that all the computation is done after the barrier?
@@ -141,15 +141,23 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
 
     double highest = 0, dist;
     double globalHighest=0;
+    
 
-    if(rec_level<2)
-        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,nthreads/(rec_level+1));
-
-    #pragma omp parallel for reduction(max:highest) num_threads(nthreads/(rec_level+1)) if(rec_level<2)
-    for(long i=0; i<current_set_size; i++){
-        dist = distance_between_points(center, points[current_set[i]]);
-        if(dist>highest)
-            highest = dist;
+    if(n > 1) {
+        fprintf(stderr,"Find radius in set of %d with %d threads\n",current_set_size,n);
+        #pragma omp parallel for reduction(max:highest) num_threads(n)
+        for(long i=0; i<current_set_size; i++){
+            dist = distance_between_points(center, points[current_set[i]]);
+            if(dist>highest)
+                highest = dist;
+        }
+    }
+    else {
+        for(long i=0; i<current_set_size; i++){
+            dist = distance_between_points(center, points[current_set[i]]);
+            if(dist>highest)
+                highest = dist;
+        }
     }
 
     return highest;
@@ -209,6 +217,13 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size)
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level) {
+    int n = nthreads/(pow(2,rec_level));
+
+    double exec_findradius;
+
+    if(rec_level < 1) {
+        exec_findradius = -omp_get_wtime();
+    }
 
     #pragma omp atomic
     n_nodes++;
@@ -264,18 +279,6 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     double* center;
 
-    // #pragma omp parallel sections
-    // {
-    //     #pragma omp section
-    //     {
-    //         center = find_center(current_set_size, proj_table);
-    //     }
-    //     #pragma omp section
-    //     {
-    //         rearrange_set(current_set_size, current_set, proj_table);
-    //     }
-    // }
-
     center = find_center(current_set_size, proj_table);
     rearrange_set(current_set_size, current_set, proj_table, rec_level);
 
@@ -283,19 +286,25 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
-    res->radius = find_radius(center, current_set, current_set_size,rec_level);
+
+    
+    res->radius = find_radius(center, current_set, current_set_size,rec_level, n);
+
+
     res->id = node_index;
 
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
-    if(rec_level < 3)
-        rec_level++;
 
-    #pragma omp task if(rec_level<2)
-    res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level);
-    #pragma omp task if(rec_level<2)
-    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level);
+    if(rec_level < 1) {
+        fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
+    }
+
+    #pragma omp task if(n>1)
+    res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level+1);
+    #pragma omp task if(n>1)
+    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level+1);
 
     return res;
 }
