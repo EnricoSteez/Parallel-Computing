@@ -5,7 +5,7 @@
 `make parallel` to compile the Parallel version
 
 Usage: 
-`./ballAlg <dim> <np> <seed> > /path/filename.tree`
+`./ballAlg <dim> <np> <seed> [num_threads]> /path/filename.tree`
 ...exec_time displayed...
 
 To see the results on stdout, omit the output redirection
