@@ -55,5 +55,5 @@ dkms.conf
 
 #vscode
 .vscode/*
-
+.DS_Store
 *.tree
