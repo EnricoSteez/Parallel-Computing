@@ -133,9 +133,9 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
     double highest = 0, dist;
     double globalHighest=0;
 
-    if(n < 0) {
-        fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
-        #pragma omp parallel for reduction(max:highest) num_threads(n)
+    if(n>1) {
+        //fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
+        #pragma omp parallel for reduction(max:highest) //num_threads(n)
         for(long i=0; i<current_set_size; i++){
             dist = distance_between_points(center, points[current_set[i]]);
             if(dist>highest)
@@ -156,11 +156,11 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
 
 long furthest_point_from_point(double* point, long* current_set, long current_set_size,int n) {
 
-    if(n<0){
+    if(n>1){
         long i, local_max_index=0, global_max_index=0;
         double aux, local_max=0, global_max=0;
         
-        #pragma omp parallel firstprivate(aux, local_max, local_max_index, i) shared(global_max, global_max_index) num_threads(n)
+        #pragma omp parallel firstprivate(aux, local_max, local_max_index, i) shared(global_max, global_max_index) //num_threads(n)
         {
             #pragma omp for nowait
             for (i = 0; i < current_set_size; i++) {
@@ -208,12 +208,12 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level) {
     int n = nthreads/(pow(2,rec_level));
-
     double exec_findradius;
 
-    if(rec_level < 1) {
+    if(n>1) {
         exec_findradius = -omp_get_wtime();
     }
+
 
     #pragma omp atomic
     n_nodes++;
@@ -287,9 +287,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
 
-    // if(n > 1) {
-    //     fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
-    // }
+    if(n > 1) {
+        fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
+    }
     
     #pragma omp task if(n>1) 
     res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level+1);
@@ -300,6 +300,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 }
 
 void dump_tree(struct node *node){
+    printf("%d %ld\n",dim,n_nodes);
     printf("%ld ", node->id);
 
     if(node->left != NULL)
@@ -356,13 +357,10 @@ int main(int argc, char **argv){
         tree = build_tree(0, current_set, np, 0);
     }
 
-    
-
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time); 
-
-    printf("%d %ld\n",dim,n_nodes);
-    dump_tree(tree);
+    
+    // dump_tree(tree);
 
     return 0;
 }
