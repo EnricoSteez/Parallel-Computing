@@ -79,15 +79,21 @@ double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
     return center;
 }
 
-void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level){
+void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level, int n){
 
-    //#pragma omp parallel for num_threads(nthreads/(pow(2,rec_lev)) if(rec_level<2)
-    for(long i=0; i < current_set_size; i++){
-        *(current_set+i) = proj_table[i].idx;
+    if(n>1){
+        #pragma omp parallel for num_threads(n)
+        for(long i=0; i < current_set_size; i++){
+            *(current_set+i) = proj_table[i].idx;
+        }
+    }
+    else{
+        for(long i=0; i < current_set_size; i++){
+            *(current_set+i) = proj_table[i].idx;
+        }
     }
 }
 
-//TODO PARALLELISE THIS MESS
 void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table, int n){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
@@ -304,7 +310,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     double* center;
 
     center = find_center(current_set_size, proj_table);
-    rearrange_set(current_set_size, current_set, proj_table, rec_level);
+    rearrange_set(current_set_size, current_set, proj_table, rec_level, n);
 
     free(proj_table);
     
