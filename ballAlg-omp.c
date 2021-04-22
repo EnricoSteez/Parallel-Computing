@@ -174,7 +174,6 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
     double globalHighest=0;
 
     if(n>1) {
-        //fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
         #pragma omp parallel for reduction(max:highest) //num_threads(n)
         for(long i=0; i<current_set_size; i++){
             dist = distance_between_points(center, points[current_set[i]]);
@@ -279,14 +278,12 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
-        // fprintf(stderr, "Calculate furthest points\n"); 
 
         furthest_points(furthest, current_set, current_set_size, n);
         a = furthest[0];
         b = furthest[1];
-        //perform the orthogonal projection of all points onto line ab;
-        // fprintf(stderr, "Make orth proj\n"); 
 
+        //perform the orthogonal projection of all points onto line ab;
         orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
     }
     else {
@@ -316,20 +313,13 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
-
     
     res->radius = find_radius(center, current_set, current_set_size,rec_level, n);
-
 
     res->id = node_index;
 
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
-
-
-    if(n > 1) {
-        fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
-    }
     
     #pragma omp task if(n>1) 
     res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level+1);
@@ -375,7 +365,7 @@ int main(int argc, char **argv){
     }
     omp_set_nested(1);
     
-    fprintf(stderr, "number of threads: %d\n", nthreads); 
+    // fprintf(stderr, "number of threads: %d\n", nthreads); 
     exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
 
@@ -399,8 +389,8 @@ int main(int argc, char **argv){
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
-    //printf("%d %ld\n",dim,n_nodes);
-    //dump_tree(tree);
+    printf("%d %ld\n",dim,n_nodes);
+    dump_tree(tree);
     free(tree);
 
     return 0;
