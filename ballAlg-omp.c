@@ -134,8 +134,7 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
     double globalHighest=0;
 
     if(n>1) {
-        //fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
-        #pragma omp parallel for reduction(max:highest) //num_threads(n)
+        #pragma omp parallel for reduction(max:highest) num_threads(n)
         for(long i=0; i<current_set_size; i++){
             dist = distance_between_points(center, points[current_set[i]]);
             if(dist>highest)
@@ -287,9 +286,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
 
-    if(n > 1) {
-        fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
-    }
+    // if(n > 1) {
+    //     fprintf(stderr, "build_tree time in level %ld: %lf\n", rec_level, exec_findradius + omp_get_wtime());
+    // }
     
     #pragma omp task if(n>1) 
     res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level+1);
