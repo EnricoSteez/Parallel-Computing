@@ -88,68 +88,34 @@ void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoi
 }
 
 //TODO PARALLELISE THIS MESS
-void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table, int n){
+void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
 
-    if(n > 1) {
+    for(long p = 0; p < current_set_size; p++){
+        for(d = 0; d < dim; d++){
+            a = points[furthest_points[0]][d];
+            b = points[furthest_points[1]][d];
+            point = points[current_set[p]][d];
+            delta += (point - a) * (b - a);
+            gamma += pow((b - a), 2);
+        }
+        phi = delta / gamma;
 
-        #pragma omp parallel for firstprivate(delta, gamma, phi) private(a, b, point, d)
-        for(long p = 0; p < current_set_size; p++){
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                point = points[current_set[p]][d];
-                delta += (point - a) * (b - a);
-                gamma += pow((b - a), 2);
-            }
-            phi = delta / gamma;
+        proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
-            proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
-
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                proj_table[p].projectedCoords[d] = phi * (b - a) + a;
-            }
-
-            proj_table[p].idx = current_set[p];
-
-            delta = 0;
-            gamma = 0;
+        for(d = 0; d < dim; d++){
+            a = points[furthest_points[0]][d];
+            b = points[furthest_points[1]][d];
+            proj_table[p].projectedCoords[d] = phi * (b - a) + a;
         }
 
+        proj_table[p].idx = current_set[p];
 
+        delta = 0;
+        gamma = 0;
     }
-
-    else {
-        for(long p = 0; p < current_set_size; p++){
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                point = points[current_set[p]][d];
-                delta += (point - a) * (b - a);
-                gamma += pow((b - a), 2);
-            }
-            phi = delta / gamma;
-
-            proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
-
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                proj_table[p].projectedCoords[d] = phi * (b - a) + a;
-            }
-
-            proj_table[p].idx = current_set[p];
-
-            delta = 0;
-            gamma = 0;
-        }
-    }
-
-
 }
 
 double distance_between_points(double* point1, double* point2) {
@@ -167,22 +133,12 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
     double highest = 0, dist;
     double globalHighest=0;
 
-    if(n>1) {
-        //fprintf(stderr,"Find radius in set of %ld with %d threads\n",current_set_size,n);
-        #pragma omp parallel for reduction(max:highest) //num_threads(n)
-        for(long i=0; i<current_set_size; i++){
-            dist = distance_between_points(center, points[current_set[i]]);
-            if(dist>highest)
-                highest = dist;
-        }
+    for(long i=0; i<current_set_size; i++){
+        dist = distance_between_points(center, points[current_set[i]]);
+        if(dist>highest)
+            highest = dist;
     }
-    else {
-        for(long i=0; i<current_set_size; i++){
-            dist = distance_between_points(center, points[current_set[i]]);
-            if(dist>highest)
-                highest = dist;
-        }
-    }
+
 
     return highest;
 
@@ -190,44 +146,17 @@ double find_radius(double *center, long* current_set, long current_set_size, lon
 
 long furthest_point_from_point(double* point, long* current_set, long current_set_size,int n) {
 
-    if(n>1){
-        long i, local_max_index=0, global_max_index=0;
-        double aux, local_max=0, global_max=0;
-        
-        #pragma omp parallel firstprivate(aux, local_max, local_max_index, i) shared(global_max, global_max_index) //num_threads(n)
-        {
-            #pragma omp for nowait
-            for (i = 0; i < current_set_size; i++) {
-                if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
-                    local_max = aux;
-                    local_max_index = current_set[i];
-                }
-            }
-            #pragma omp critical
-            {
-                if(local_max > global_max){
-                    global_max = local_max;
-                    global_max_index = local_max_index;
-                    
-                }
-            }
+    long i, local_max_index=0;
+    double aux;
+    double local_max=0;
+
+    for (i = 0; i < current_set_size; i++) {
+        if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
+            local_max = aux;
+            local_max_index = current_set[i];
         }
-
-        return global_max_index;
-
-    } else {
-        long i, local_max_index=0;
-        double aux;
-        double local_max=0;
-
-        for (i = 0; i < current_set_size; i++) {
-            if((aux = distance_between_points(point, points[current_set[i]])) > local_max) {
-                local_max = aux;
-                local_max_index = current_set[i];
-            }
-        }
-        return local_max_index;
     }
+    return local_max_index;
     
 }
 
@@ -281,7 +210,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         //perform the orthogonal projection of all points onto line ab;
         // fprintf(stderr, "Make orth proj\n"); 
 
-        orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
+        orthogonal_projection(current_set_size, current_set, furthest, proj_table);
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
@@ -334,6 +263,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 }
 
 void dump_tree(struct node *node){
+    printf("%d %ld\n",dim,n_nodes);
     printf("%ld ", node->id);
 
     if(node->left != NULL)
@@ -391,11 +321,9 @@ int main(int argc, char **argv){
     }
 
     exec_time += omp_get_wtime();
-    fprintf(stderr, "%.1lf\n", exec_time);
-
-    //printf("%d %ld\n",dim,n_nodes);
-    //dump_tree(tree);
+    fprintf(stderr, "%.1lf\n", exec_time); 
+    
+    // dump_tree(tree);
     free(tree);
-
     return 0;
 }
