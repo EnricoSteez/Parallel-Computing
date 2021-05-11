@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-fopenmp -O3 -lm
 
-all: sequential parallel
+all: sequential parallel ballquery
 
 sequential: ballAlg.c
 	$(CC) -o ballAlg ballAlg.c $(CFLAGS)
