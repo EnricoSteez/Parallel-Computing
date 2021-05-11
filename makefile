@@ -11,3 +11,6 @@ parallel: ballAlg-omp.c
 
 parallelprofiller: ballAlg-omp.c
 	kinst-ompp $(CC) -o ballAlg ballAlg-omp.c $(CFLAGS)
+
+ballquery: ballQuery.c
+	$(CC) -o ballQuery ballQuery.c $(CFLAGS)
