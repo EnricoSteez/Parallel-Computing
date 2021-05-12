@@ -326,16 +326,21 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
     //MPI
-    if(p > 1){
+    if(whichproc + pow(2, rec_level) < nprocs) {
+
+        //I NEED THE FUCKING POINTER
+        MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_Comm_rank);
+
+        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);        
         //send left and right to two different processes
         //send 
 
         
     } else { //OPENMP
         #pragma omp task if(n>1) 
-        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level+1);
+        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
         #pragma omp task if(n>1) 
-        res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level+1);
+        res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc);
     }
     
     return res;
@@ -378,6 +383,7 @@ int main(int argc, char **argv){
     }
     omp_set_nested(1);
 
+    MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
@@ -391,14 +397,40 @@ int main(int argc, char **argv){
     long* current_set = (long*) malloc(np * sizeof(long));
 
     // #pragma omp parallel for
-    for(int j = 0; j < np; j++) {
-        current_set[j] = j;
-    }
+    
 
     n_nodes = 0;
 
+    int recv_size = np;
+
+    // MAGIC THAT WORKS
+
+    int aux;
+    int level = -1;
+    for (int i = 0; pow(2, i) <= me; i++) {
+        level = i;
+        aux = pow(2, i);
+        if(recv_size % 2 == 0) {
+            recv_size = recv_size/2;
+        }
+        else {
+            if((int)((me - aux) / aux) % 2 == 0) {
+                recv_size = (recv_size + 1) /2;
+            }
+            else {
+                recv_size = (recv_size - 1) /2;
+            }
+        }
+    }
+
+    ///
+
     if(me==0)
-        tree = build_tree(0, current_set, np, 0, nprocs, 0);
+        for(int j = 0; j < np; j++) current_set[j] = j;
+    else
+        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , status);
+    
+    tree = build_tree(0, current_set, np, level + 1, nprocs, me);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
