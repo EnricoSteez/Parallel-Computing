@@ -253,7 +253,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     }
     fprintf(stderr, "\n");
     int p = nprocs/(pow(2,rec_level));
-
+    int next_number_of_subtrees = (pow(2,rec_level+1);
     int n = nthreads/(pow(2,rec_level));
 
     double exec_findradius;
