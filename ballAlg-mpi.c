@@ -461,6 +461,7 @@ int main(int argc, char **argv){
 
     
     tree = build_tree(0, current_set, recv_size, level + 1, nprocs, me);
+    fprintf(stderr, "[%d] will dump tree %ld\n",me, tree->id);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
@@ -468,7 +469,6 @@ int main(int argc, char **argv){
     if (me == 0)
     printf("%d %ld\n",dim,np*2-1);
 
-    fprintf(stderr, "[%d] will dump tree %ld\n",me, tree->id);
     dump_tree(tree, me);
     fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     free(tree);
