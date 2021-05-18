@@ -328,10 +328,12 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     //MPI
     if(whichproc + pow(2, rec_level) < nprocs) {
 
-        //I NEED THE FUCKING POINTER
+        //I NEED THE POINTER
+        
         MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_Comm_rank);
 
-        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);        
+        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc); 
+       
         //send left and right to two different processes
         //send 
 
