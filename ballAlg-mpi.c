@@ -274,7 +274,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->left = NULL;
         res->right = NULL;
         res->radius = 0;
-
+        fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
         return res;
     }
 
