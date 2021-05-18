@@ -329,7 +329,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(whichproc + pow(2, rec_level) < nprocs) {
 
         //I NEED THE POINTER
-        
+
         MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_Comm_rank);
 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc); 
@@ -437,7 +437,9 @@ int main(int argc, char **argv){
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
+    if (me == 0)
     printf("%d %ld\n",dim,n_nodes);
+    
     dump_tree(tree);
     free(tree);
 
