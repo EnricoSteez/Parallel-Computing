@@ -247,7 +247,7 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
-    
+    printf("processor %d entered build_tree\n", whichproc);
     int p = nprocs/(pow(2,rec_level));
 
     int n = nthreads/(pow(2,rec_level));
@@ -438,7 +438,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "%.1lf\n", exec_time);
 
     if (me == 0)
-    printf("%d %ld\n",dim,n_nodes);
+    printf("%d %ld\n",dim,np*2-1);
 
     dump_tree(tree);
     free(tree);
