@@ -275,6 +275,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->right = NULL;
         res->radius = 0;
         fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
+        fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
         return res;
     }
 
@@ -461,7 +462,6 @@ int main(int argc, char **argv){
 
     
     tree = build_tree(0, current_set, recv_size, level + 1, nprocs, me);
-    fflush(stderr);
     fprintf(stderr, "[%d] will dump tree %ld\n",me, tree->id);
 
     exec_time += omp_get_wtime();
