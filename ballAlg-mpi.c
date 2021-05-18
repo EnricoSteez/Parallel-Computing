@@ -247,7 +247,7 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
-    fprintf(stderr, "processor %d entered build_tree\n", whichproc);
+    fprintf(stderr, "[%d] processor entered build_tree\n", whichproc);
     int p = nprocs/(pow(2,rec_level));
 
     int n = nthreads/(pow(2,rec_level));
@@ -262,6 +262,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     n_nodes++;
 
     if(current_set_size == 1) {
+        fprintf(stderr, "[%d] will stop recursion\n", whichproc);
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
         res->id = node_index;
@@ -340,6 +341,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
         
     } else { //OPENMP
+        fprintf(stderr, "[%d] will execute tasks\n",whichproc);
         #pragma omp task if(n>1) 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
         #pragma omp task if(n>1) 
@@ -349,7 +351,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     return res;
 }
 
-void dump_tree(struct node *node){
+void dump_tree(struct node *node, int me){
     printf("%ld ", node->id);
 
     if(node->left != NULL)
@@ -365,9 +367,11 @@ void dump_tree(struct node *node){
     printf("\n"); fflush(stdin);
 
     if(node->left != NULL){
-        dump_tree(node->left);
-        dump_tree(node->right);
+        dump_tree(node->left, me);
+        dump_tree(node->right, me);
     }
+
+    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
 }
 
 
@@ -450,7 +454,7 @@ int main(int argc, char **argv){
     printf("%d %ld\n",dim,np*2-1);
 
     fprintf(stderr, "[%d] will dump tree\n",me);
-    dump_tree(tree);
+    dump_tree(tree, me);
     free(tree);
 
     return 0;
