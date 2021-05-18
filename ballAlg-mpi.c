@@ -329,7 +329,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(whichproc + pow(2, rec_level) < nprocs) {
 
         //I NEED THE POINTER
-        fprintf(stderr, "[%d] will send to processor %d\n",whichproc, whichproc + pow(2, rec_level));
+        fprintf(stderr, "[%d] will send to processor %lf\n",whichproc, whichproc + pow(2, rec_level));
         MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
         fprintf(stderr, "[%d] sent!\n", whichproc);
 
