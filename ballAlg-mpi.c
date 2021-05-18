@@ -272,14 +272,16 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->radius = 0;
 
         return res;
-    }    
+    }
+
+    fprintf(stderr, "[%d] 1\n", whichproc);
 
     long a;
     long b;
 
     struct ProjectedPoint* proj_table;
     proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
-    
+    fprintf(stderr, "[%d] 2\n", whichproc);
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
@@ -287,11 +289,14 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         furthest_points(furthest, current_set, current_set_size, n);
         a = furthest[0];
         b = furthest[1];
-
+        fprintf(stderr, "[%d] 3\n", whichproc);
         //perform the orthogonal projection of all points onto line ab;
         orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
+        fprintf(stderr, "[%d] 4\n", whichproc);
     }
     else {
+
+        fprintf(stderr, "[%d] 3.1\n", whichproc);
         //if there are only 2 points, no need to make orthogonal projection
         a = current_set[0];
         b = current_set[1];
@@ -308,6 +313,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     }
 
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
+    fprintf(stderr, "[%d] 4.1\n", whichproc);
 
     double* center;
 
@@ -326,6 +332,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
+    fprintf(stderr, "[%d] 5.1\n", whichproc);
     //MPI
     if(whichproc + pow(2, rec_level) < nprocs) {
 
