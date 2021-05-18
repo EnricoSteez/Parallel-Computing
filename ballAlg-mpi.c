@@ -247,7 +247,7 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
-    printf("processor %d entered build_tree\n", whichproc);
+    fprintf(stderr, "processor %d entered build_tree\n", whichproc);
     int p = nprocs/(pow(2,rec_level));
 
     int n = nthreads/(pow(2,rec_level));
@@ -329,8 +329,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     if(whichproc + pow(2, rec_level) < nprocs) {
 
         //I NEED THE POINTER
-
+        fprintf(stderr, "[%d] will send to processor %d\n",whichproc, whichproc + pow(2, rec_level));
         MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
+        fprintf(stderr, "[%d] sent!\n", whichproc);
 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc); 
        
@@ -429,8 +430,16 @@ int main(int argc, char **argv){
 
     if(me==0)
         for(int j = 0; j < np; j++) current_set[j] = j;
-    else
+    else {
+        fprintf(stderr, "[%d] will receive from processor %d\n",me, me - aux);
         MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
+        fprintf(stderr, "[%d] received: ",me);
+        for (int i = 0; i < recv_size; i++) {
+            fprintf(stderr, "%ld, ", current_set[i]);
+        }
+        fprintf(stderr, "\n ");
+    }
+
     
     tree = build_tree(0, current_set, np, level + 1, nprocs, me);
 
@@ -440,6 +449,7 @@ int main(int argc, char **argv){
     if (me == 0)
     printf("%d %ld\n",dim,np*2-1);
 
+    fprintf(stderr, "[%d] will dump tree\n",me);
     dump_tree(tree);
     free(tree);
 

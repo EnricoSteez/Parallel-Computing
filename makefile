@@ -14,3 +14,6 @@ parallelprofiller: ballAlg-omp.c
 
 ballquery: ballQuery.c
 	$(CC) -o ballQuery ballQuery.c $(CFLAGS)
+
+mpi: ballAlg-mpi.c
+	mpicc -g -o ballAlg-mpi ballAlg-mpi.c $(CFLAGS)
