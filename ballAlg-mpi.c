@@ -468,7 +468,7 @@ int main(int argc, char **argv){
     if (me == 0)
     printf("%d %ld\n",dim,np*2-1);
 
-    fprintf(stderr, "[%d] will dump tree\n",me);
+    fprintf(stderr, "[%d] will dump tree %ld\n",me, tree->id);
     dump_tree(tree, me);
     fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     free(tree);
