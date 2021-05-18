@@ -367,6 +367,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 }
 
 void dump_tree(struct node *node, int me){
+    fprintf(stderr, "[%d] will print tree with pointer: %p\n", me, node);
     printf("[%d] %ld ", me, node->id);
 
     if(node->left != NULL)
