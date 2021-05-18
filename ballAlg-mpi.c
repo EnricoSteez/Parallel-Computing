@@ -367,7 +367,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 }
 
 void dump_tree(struct node *node, int me){
-    printf("%ld ", node->id);
+    printf("[%d] %ld ", me, node->id);
 
     if(node->left != NULL)
         printf("%ld %ld ", node->left->id, node->right->id);
@@ -386,7 +386,6 @@ void dump_tree(struct node *node, int me){
         dump_tree(node->right, me);
     }
 
-    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
 }
 
 
@@ -470,6 +469,7 @@ int main(int argc, char **argv){
 
     fprintf(stderr, "[%d] will dump tree\n",me);
     dump_tree(tree, me);
+    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     free(tree);
 
     return 0;
