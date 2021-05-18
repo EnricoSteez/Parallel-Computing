@@ -330,7 +330,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
         //I NEED THE POINTER
 
-        MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_Comm_rank);
+        MPI_Send( current_set+current_set_size/2 , nextRightSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc); 
        
@@ -430,7 +430,7 @@ int main(int argc, char **argv){
     if(me==0)
         for(int j = 0; j < np; j++) current_set[j] = j;
     else
-        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , status);
+        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
     
     tree = build_tree(0, current_set, np, level + 1, nprocs, me);
 
@@ -439,7 +439,7 @@ int main(int argc, char **argv){
 
     if (me == 0)
     printf("%d %ld\n",dim,n_nodes);
-    
+
     dump_tree(tree);
     free(tree);
 
