@@ -247,7 +247,11 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
-    fprintf(stderr, "[%d] processor entered build_tree\n", whichproc);
+    fprintf(stderr, "[%d] processor entered build_tree with set ", whichproc);
+    for (int i ; i < current_set_size; i++) {
+        fprintf(stderr, "%ld, ", current_set[i]);
+    }
+    fprintf(stderr, "\n");
     int p = nprocs/(pow(2,rec_level));
 
     int n = nthreads/(pow(2,rec_level));
@@ -283,6 +287,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
     fprintf(stderr, "[%d] 2\n", whichproc);
     if(current_set_size > 2) {
+        fprintf(stderr, "[%d] 2.5\n", whichproc);
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
 
