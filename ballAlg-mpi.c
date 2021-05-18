@@ -460,7 +460,7 @@ int main(int argc, char **argv){
     }
 
     
-    tree = build_tree(0, current_set, np, level + 1, nprocs, me);
+    tree = build_tree(0, current_set, recv_size, level + 1, nprocs, me);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
