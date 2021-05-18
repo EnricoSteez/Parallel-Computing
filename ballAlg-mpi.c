@@ -310,10 +310,13 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
             proj_table[0].projectedCoords[i] = points[a][i];
             proj_table[1].projectedCoords[i] = points[b][i];
         }
+
+        fprintf(stderr, "[%d] 4.1\n", whichproc);
+
     }
 
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
-    fprintf(stderr, "[%d] 4.1\n", whichproc);
+    fprintf(stderr, "[%d] 5\n", whichproc);
 
     double* center;
 
@@ -332,7 +335,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
-    fprintf(stderr, "[%d] 5.1\n", whichproc);
+    fprintf(stderr, "[%d] 6\n", whichproc);
     //MPI
     if(whichproc + pow(2, rec_level) < nprocs) {
 
