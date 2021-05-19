@@ -274,7 +274,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->left = NULL;
         res->right = NULL;
         res->radius = 0;
-        fprintf(stderr, "[%d] will return %ld", whichproc, res->id);
+        fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
         return res;
     }
 
@@ -326,14 +326,25 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     double* center;
 
     center = find_center(current_set_size, proj_table);
+    fprintf(stderr, "[%d] 5.center\n", whichproc);
+
     rearrange_set(current_set_size, current_set, proj_table, rec_level, n);
+    fprintf(stderr, "[%d] 5.rearrange\n", whichproc);
 
     free(proj_table);
     
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
+    fprintf(stderr, "[%d] 5.center = %lf\n", whichproc,center[0]);
+    // fprintf(stderr, "[%d] Finding radius of set:\n", whichproc);
+    // for(int i=0 ; i<current_set_size ; i++){
+    //     fprintf(stderr, "[%d] %d:\n", whichproc,current_set[i]);
+    // }
+
     
     res->radius = find_radius(center, current_set, current_set_size,rec_level, n);
+    fprintf(stderr, "[%d] 5.radius = %lf\n", whichproc, res->radius);
+
 
     res->id = node_index;
 
@@ -342,14 +353,16 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     fprintf(stderr, "[%d] 6\n", whichproc);
     //MPI
+    res->left = NULL;
+    res -> right = NULL;
     if(whichproc + pow(2, rec_level) < nprocs) {
 
         //I NEED THE POINTER
         fprintf(stderr, "[%d] will send to processor %lf\n",whichproc, whichproc + pow(2, rec_level));
-        MPI_Send( current_set , nextLeftSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
+        MPI_Send( current_set , nextLeftSize , MPI_LONG ,  whichproc + pow(2, rec_level), node_index +1 , MPI_COMM_WORLD);
         fprintf(stderr, "[%d] sent!\n", whichproc);
 
-        res->right = build_tree(node_index + 1, current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc); 
+        res->right = build_tree(node_index + nextLeftSize*2, current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc); 
        
         //send left and right to two different processes
         //send 
@@ -368,7 +381,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 }
 
 void dump_tree(struct node *node, int me){
-    fprintf(stderr, "[%d] will print tree with pointer: %p\n", me, node);
+    fprintf(stderr, "[%d] will print its tree\n", me);
     printf("[%d] %ld ", me, node->id);
 
     if(node->left != NULL)
@@ -385,6 +398,8 @@ void dump_tree(struct node *node, int me){
 
     if(node->left != NULL){
         dump_tree(node->left, me);
+    }
+    if(node->right != NULL){
         dump_tree(node->right, me);
     }
 
@@ -411,7 +426,7 @@ int main(int argc, char **argv){
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
     
-    // fprintf(stderr, "number of threads: %d\n", nthreads); 
+    fprintf(stderr, "Hi from: [%d]\n", me); 
     exec_time = - omp_get_wtime();
     //get input sample points (use the function from the guide)
 
@@ -451,28 +466,30 @@ int main(int argc, char **argv){
     if(me==0)
         for(int j = 0; j < np; j++) current_set[j] = j;
     else {
-        fprintf(stderr, "[%d] will receive from processor %d\n",me, me - aux);
-        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
-        fprintf(stderr, "[%d] received: ",me);
-        for (int i = 0; i < recv_size; i++) {
+        fprintf(stderr, "[%d] is waiting for  processor %d\n",me, me - aux);
+        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , MPI_ANY_TAG , MPI_COMM_WORLD , &status);
+        
+	fprintf(stderr, "[%d] received: ",me);
+	for (int i = 0; i < recv_size; i++) {
             fprintf(stderr, "%ld, ", current_set[i]);
         }
         fprintf(stderr, "\n ");
+	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,status.MPI_TAG);
     }
 
-    
-    tree = build_tree(0, current_set, recv_size, level + 1, nprocs, me);
+   if (me == 0)
+    printf("%d %ld\n",dim,np*2-1);
+
+    tree = build_tree(status.MPI_TAG, current_set, recv_size, level + 1, nprocs, me);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
-    if (me == 0)
-    printf("%d %ld\n",dim,np*2-1);
-
     dump_tree(tree, me);
     fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     free(tree);
+    MPI_Finalize();
 
     return 0;
 }
