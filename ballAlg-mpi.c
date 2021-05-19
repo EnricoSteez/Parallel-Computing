@@ -274,7 +274,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->left = NULL;
         res->right = NULL;
         res->radius = 0;
-        fprintf(stderr, "[%d] will return %ld pointer: %p\n", whichproc, res->id, res);
+        fprintf(stderr, "[%d] will return %ld", whichproc, res->id);
         return res;
     }
 
@@ -362,7 +362,8 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         #pragma omp task if(n>1) 
         res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc);
     }
-    
+
+    fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
     return res;
 }
 
@@ -461,7 +462,7 @@ int main(int argc, char **argv){
 
     
     tree = build_tree(0, current_set, recv_size, level + 1, nprocs, me);
-    fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
+    // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
