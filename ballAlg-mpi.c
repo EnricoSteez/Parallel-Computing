@@ -493,7 +493,7 @@ int main(int argc, char **argv){
             fprintf(stderr, "%ld, ", current_set[i]);
         }
         fprintf(stderr, "\n ");
-	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,status.MPI_TAG);
+	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
     }
 
    if (me == 0)
