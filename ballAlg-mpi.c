@@ -274,6 +274,8 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->left = NULL;
         res->right = NULL;
         res->radius = 0;
+        res->left_node = -1;
+
         fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
         return res;
     }
@@ -386,8 +388,17 @@ void dump_tree(struct node *node, int me){
 
     if(node->left != NULL)
         printf("%ld %ld ", node->left->id, node->right->id);
-    else
-        printf("-1 -1 ");
+    else{
+        //left is null
+        if(node->right == NULL) {
+            //both null -> LEAF!
+            printf("-1 -1 ");
+        }
+        else {
+            //right is not null-> child is on the other processor!
+            printf("%ld %ld ", node->id + 1, node->right->id);
+        }
+    }
 
     printf("%lf ",node->radius);
 
