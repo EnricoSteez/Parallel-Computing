@@ -1,4 +1,4 @@
-CC=gcc
+CC=gcc-10
 CFLAGS=-fopenmp -O3 -lm
 
 all: sequential parallel ballquery

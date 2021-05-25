@@ -370,7 +370,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
         
     } else { //OPENMP
-        fprintf(stderr, "[%d] will execute tasks\n",whichproc);
+        //fprintf(stderr, "[%d] will execute tasks\n",whichproc);
         #pragma omp task if(n>1) 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
         #pragma omp task if(n>1) 
@@ -417,7 +417,7 @@ void dump_tree(struct node *node, int me){
 
 
 int main(int argc, char **argv){
-    double exec_time;
+    double elapsed_time;
     int me, nprocs;
     struct node* tree;
 
@@ -433,11 +433,13 @@ int main(int argc, char **argv){
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed_time = -MPI_Wtime();
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
     
     fprintf(stderr, "Hi from: [%d]\n", me); 
-    exec_time = - omp_get_wtime();
+    
     //get input sample points (use the function from the guide)
 
     points = get_points(argc, argv, &dim, &np);
@@ -496,15 +498,15 @@ int main(int argc, char **argv){
 	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
     }
 
-   if (me == 0)
-    printf("%d %ld\n",dim,np*2-1);
-
     tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
-
-    exec_time += omp_get_wtime();
-    fprintf(stderr, "%.1lf\n", exec_time);
-
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed_time += MPI_Wtime();
+    if(me==0){
+        printf("%d %ld\n",dim,np*2-1);
+        fprintf(stderr, "%.1lf\n", elapsed_time);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
     dump_tree(tree, me);
     fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     free(tree);
