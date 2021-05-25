@@ -443,7 +443,11 @@ int main(int argc, char **argv){
     //get input sample points (use the function from the guide)
 
     points = get_points(argc, argv, &dim, &np);
-
+    
+    if(me==0){
+        printf("%d %ld\n",dim,np*2-1);
+    }
+    
     long* current_set = (long*) malloc(np * sizeof(long));
 
     // #pragma omp parallel for
@@ -498,13 +502,14 @@ int main(int argc, char **argv){
 	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
     }
 
+    
+
     tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
     MPI_Barrier(MPI_COMM_WORLD);
     elapsed_time += MPI_Wtime();
     if(me==0){
         printf("%d %ld\n",dim,np*2-1);
-        fprintf(stderr, "%.1lf\n", elapsed_time);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     dump_tree(tree, me);
