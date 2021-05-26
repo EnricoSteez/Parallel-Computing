@@ -25,7 +25,7 @@ double **create_array_pts(int n_dims, long np)
 
 
 
-void get_n_points(int array[], int indexes[], int npoints, int n, int first_proc, int first_point) {
+void get_n_points(long array[], long indexes[], long npoints, int n, int first_proc, long first_point) {
     if(n == 1) {
         array[first_proc] = npoints;
         if(first_proc != 0) indexes[first_proc] = indexes[first_proc-1] + array[first_proc-1];
@@ -44,14 +44,8 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int n
 {
     double **pt_arr;
     unsigned seed;
-    long i, mynp;
+    long i;
     int j;
-
-    if(me!=(nprocs-1)){
-        mynp = atol(argv[2])/nprocs;
-    } else {
-        mynp = atol(argv[2]) - (atol(argv[2])/(nprocs))*(nprocs-1);
-    }
 
 
     if(argc != 4){
@@ -64,9 +58,8 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int n
         printf("Illegal number of dimensions (%d), must be above 1.\n", *n_dims);
         exit(2);
     }
-
-    *np = atol(argv[2]);
-    if(*np < 1){
+    long number_of_points = atol(argv[2]);
+    if(number_of_points < 1){
         printf("Illegal number of points (%ld), must be above 0.\n", *np);
         exit(3);
     }
@@ -74,13 +67,14 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int n
     seed = atoi(argv[3]);
     srandom(seed);
 
-    int array[nprocs];
-    int indexes[nprocs];
+    long array[nprocs];
+    long indexes[nprocs];
 
-    get_n_points(array, indexes, np, nprocs, 0, 0);
+    get_n_points(array, indexes, number_of_points, nprocs, 0, 0);
 
     pt_arr = (double **) create_array_pts(*n_dims, array[me]);
 
+    *np = array[me];
 
     long myindex=0;
     double pointDim;

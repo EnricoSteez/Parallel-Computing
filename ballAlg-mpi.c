@@ -113,7 +113,6 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
                 gamma += pow((b - a), 2);
             }
             phi = delta / gamma;
-
             proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
             for(d = 0; d < dim; d++){
@@ -121,16 +120,11 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
                 b = points[furthest_points[1]][d];
                 proj_table[p].projectedCoords[d] = phi * (b - a) + a;
             }
-
             proj_table[p].idx = current_set[p];
-
             delta = 0;
             gamma = 0;
         }
-
-
     }
-
     else {
         for(long p = 0; p < current_set_size; p++){
             for(d = 0; d < dim; d++){
@@ -141,7 +135,6 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
                 gamma += pow((b - a), 2);
             }
             phi = delta / gamma;
-
             proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
             for(d = 0; d < dim; d++){
@@ -149,15 +142,11 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
                 b = points[furthest_points[1]][d];
                 proj_table[p].projectedCoords[d] = phi * (b - a) + a;
             }
-
             proj_table[p].idx = current_set[p];
-
             delta = 0;
             gamma = 0;
         }
     }
-
-
 }
 
 double distance_between_points(double* point1, double* point2) {
@@ -541,26 +530,13 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
     struct node* subtree;
 
 // FURTHEST POINTS A and B
-    if(!me){
-        //send point 0 to everyone
-        //receive as from everyone
-        //calculate A = max(as)
-        //send A to everyone
-        //receive local bs from everyone
-        //calculate B = max(bs)
-        //send B to everyone
-    } else {
-        //receive point 0 from p0
-        //calculate local a, furthest from 0
-        //send a to p0
-        //receive global A
-        //calculate local b as most distant from A
-        //send b to p0
-        //receive global B
-    }
+    double * A = calc_A_dist();
+    double * B = calc_B_dist(A);
 
-    //CALCULATE LOCAL AB LINE
-    //CALCULATE LOCAL ORTHOGONAL PROJECTION
+    struct ProjectedPoint* proj_table;
+    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
+    //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
+    orthogonal_projection_v2(A, B, proj_table)
     
     //DISTRIBUTED SORTING ALGORITHM
 
@@ -583,4 +559,99 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
 
 
     return subtree;
+}
+
+double * local_furthest_from_point(double ** set, long set_size, double * point){
+    double max=0;
+    double distance;
+    double * furthest;
+
+    for(int i=0;i<set_size;i++){
+        if((distance = distance_between_points(point,*(set+i))) > max){
+            max = distance;
+            furthest = *(set+i);
+        }
+    }
+    return furthest;
+}
+
+double * calc_A_dist(){
+    double * first = (double *) malloc(dim*sizeof(double));
+    if(!me){
+        first = points[0];
+    }
+    //broadcast point 0
+    MPI_Bcast(first,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    //now everyone has 'first' point
+    //calculate local a, furthest from 'first' (new util function)
+    double * a = local_furthest_from_point(points, np, first);
+    double ** as;
+    if(!me){
+    //allocate gathering vector of points (to store as, only p0 needs to)
+        as = (double **) malloc(nprocs * sizeof(double *));
+        for(int i=0;i<nprocs;i++){
+            *(as+i) = (double *) malloc(dim * sizeof(double));
+        }
+    }
+    //gather everyone's 'a' at p0
+    MPI_Gather(a, dim, MPI_DOUBLE, as, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //calculate real A = furthest among 'a's
+    double * A;
+    if(!me)
+        double * A = local_furthest_from_point(as, nprocs, first);
+
+    //Bcast A
+    MPI_Bcast(A, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //now everyone has the real A of the set
+    return A;
+}
+
+double * calc_B_dist(double * A){
+    //calculate local b
+    double * b = local_furthest_from_point(points, np, A);
+    double ** bs;
+    //allocate gathering vector of points (to store bs, only p0 needs to)
+    if(!me){
+        double ** bs = (double **) malloc(nprocs * sizeof(double *));
+        for(int i=0;i<nprocs;i++){
+            *(bs+i) = (double *) malloc(dim * sizeof(double));
+        }
+    }
+
+    //gather everyone's 'b' at p0
+    MPI_Gather(b, dim, MPI_DOUBLE, bs, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //calculate real B = furthest among 'b's
+    double * B;
+    if(!me)
+        double * B = local_furthest_from_point(bs, nprocs, A);
+    //send B to everyone
+    MPI_Bcast(B,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    //now everyone has the real B of the set
+    return B;
+}
+
+void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_table){
+    double delta = 0, gamma = 0, phi = 0;
+    double a, b, point;
+
+    for(long p = 0; p < np; p++){
+        for(int d = 0; d < dim; d++){
+            a = A[d];
+            b = B[d];
+            point = points[p][d];
+            delta += (point - a) * (b - a);
+            gamma += pow((b - a), 2);
+        }
+        phi = delta / gamma;
+        proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
+
+        for(int d = 0; d < dim; d++){
+            a = A[d];
+            b = B[d];
+            proj_table[p].projectedCoords[d] = phi * (b - a) + a;
+        }
+        proj_table[p].idx = p;
+        delta = 0;
+        gamma = 0;
+    }
 }
