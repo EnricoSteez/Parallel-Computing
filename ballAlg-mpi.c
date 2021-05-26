@@ -510,7 +510,7 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
     struct ProjectedPoint* proj_table;
     proj_table = (struct ProjectedPoint*) malloc (np* sizeof(struct ProjectedPoint));
     //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
-    orthogonal_projection_v2(A, B, proj_table)
+    orthogonal_projection_v2(A, B, proj_table);
     
     //DISTRIBUTED SORTING ALGORITHM
 
