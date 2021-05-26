@@ -522,61 +522,75 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
         double * center = (double *) malloc(dim * sizeof(double));
 
         if(me==midRight){
-            MPI_Send(proj_table[0].projectedCoords, dim, MPI_DOUBLE, midLeft, 0, MPI_COMM_WORLD);
-            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
-        } else if(me==midLeft){ //receive first point of the projection of mid-right process then compute the center as average with my last projected point
-            double * midRightFirstProjectedPoint = (double *) malloc(dim * sizeof(double));
-            MPI_Recv(midRightFirstProjectedPoint, dim, MPI_DOUBLE, midRight, 0, MPI_COMM_WORLD);
+            //receive last point of midLeft process (left-center of the ball)
+            double * midLeftLastProjectedPoint = (double *) malloc(dim * sizeof(double));
+            MPI_Recv(midLeftLastProjectedPoint, dim, MPI_DOUBLE, midLeft, 0, MPI_COMM_WORLD);
+            //calculate actual center (between midLeftLastProjectedPoint and local -midRight- first point -right center of the ball-)
             for(int i = 0; i < dim; i++){
-                center[i] = (proj_table[np-1].projectedCoords[i] + midRightFirstProjectedPoint[i] / 2;
+                center[i] = (proj_table[0].projectedCoords[i] + midLeftLastProjectedPoint[i]) / 2;
             }
-            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
-        }
-        } else { //everyone else just receives the broadcast of the center point
-            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+        } else if(me==midLeft){ //send last point of local set (left-center of the ball) to midRight process
+            MPI_Send(proj_table[np-1].projectedCoords, dim, MPI_DOUBLE, midRight, 0, MPI_COMM_WORLD);
         }
 
+        //midRight BCASTs the center point
+        MPI_Bcast(center, dim, MPI_DOUBLE, midRight, MPI_COMM_WORLD);
         //now everyone has the center of the ball and can compute its local max radius
+
+        //everyone computes local point that is max distant from center
         double * furthestFromCenter = local_furthest_point_from_point(points, np, center);
         double** furthests;
-        if(me==midLeft) {
+        if(me==midRight) {
             furthests = (double **) malloc (nprocs*sizeof(double *));
             for(int i=0; i<nprocs;i++){
                 *(furthests+i) = (double *) malloc (dim*sizeof(double));
             }
         }
-        //gather furthest points from center in midLeft node
-        MPI_Gather(furthestFromCenter, dim, MPI_DOUBLE, furthests, dim, MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+        //gather furthest points from center in midRight node
+        MPI_Gather(furthestFromCenter, dim, MPI_DOUBLE, furthests, dim, MPI_DOUBLE, midRight, MPI_COMM_WORLD);
 
-        if(me==midLeft){
+        //finalise node creation in midRight node
+        if(me==midRight){
             furthestFromCenter = local_furthest_point_from_point(furthests, nprocs, center);
             double radius = distance_between_points(furthestFromCenter, center);
             node->radius = radius;
             //TODO JOSE FINISH COMPUTATION OF CURRENT NODE
         }
-
+        //everyone gets rid of the structure
         free(proj_table)
 
-
-    } //ODD SET, CENTER IS 
+    } //ODD SET, CENTER IS FIRST POINT OF THE MID-RIGHT PROCESS
     else {
-        
+        if(me!=midRight)
+            double * center = (double *) malloc(dim * sizeof(double));
+        else
+            double * center = proj_table[0];
+
+        MPI_Bcast(center, dim, MPI_DOUBLE, midRight, MPI_COMM_WORLD);
+        //now everyone has the center point
+        //everyone will compute its local most distant point from it
+        double * furthestFromCenter = local_furthest_point_from_point(points, np, center);
+
+        double** furthests;
+        if(me==midRight) {
+            furthests = (double **) malloc (nprocs*sizeof(double *));
+            for(int i=0; i<nprocs;i++){
+                *(furthests+i) = (double *) malloc (dim*sizeof(double));
+            }
+        }
+        //gather furthest points from center in midRight node
+        MPI_Gather(furthestFromCenter, dim, MPI_DOUBLE, furthests, dim, MPI_DOUBLE, midRight, MPI_COMM_WORLD);
+
+        //finalise node creation in midRight node
+        if(me==midRight){
+            furthestFromCenter = local_furthest_point_from_point(furthests, nprocs, center);
+            double radius = distance_between_points(furthestFromCenter, center);
+            node->radius = radius;
+            //TODO JOSE FINISH COMPUTATION OF CURRENT NODE
+        }
     }
 
-    // if(me == "process that has the center"){
-    //     SEND CENTER TO EVERYONE
-    //     FIND LOCAL MAX DISTANT
-    //     RECEIVE DISTANCES
-    //     CALCULATE RADIUS = MAX
-        
-    // } else {
-    //     RECEIVE CENTER 
-    //     FIND LOCAL MAX DISTANT
-    //     SENT TO "process that has the center"
-    // }   
-
-
-    return subtree;
+    return node;
 }
 
 
