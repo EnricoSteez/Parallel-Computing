@@ -24,12 +24,19 @@ double **create_array_pts(int n_dims, long np)
 }
 
 
-double **get_points(int argc, char *argv[], int *n_dims, long *np)
+double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int nprocs)
 {
     double **pt_arr;
     unsigned seed;
-    long i;
+    long i, mynp;
     int j;
+
+    if(me!=(nprocs-1)){
+        mynp = atol(argv[2])/nprocs;
+    } else {
+        mynp = atol(argv[2]) - (atol(argv[2])/(nprocs))*(nprocs-1);
+    }
+
 
     if(argc != 4){
         printf("Usage: %s <n_dims> <n_points> <seed>\n", argv[0]);
@@ -51,11 +58,19 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np)
     seed = atoi(argv[3]);
     srandom(seed);
 
-    pt_arr = (double **) create_array_pts(*n_dims, *np);
+    pt_arr = (double **) create_array_pts(*n_dims, mynp);
+
+    long myindex=0;
+    double pointDim;
 
     for(i = 0; i < *np; i++)
-        for(j = 0; j < *n_dims; j++)
-            pt_arr[i][j] = RANGE * ((double) random()) / RAND_MAX;
+        for(j = 0; j < *n_dims; j++){
+            pointDim = RANGE * ((double) random()) / RAND_MAX;
+            if(i>=(atol(argv[2])/nprocs)*me && i<((atol(argv[2])/nprocs)*me + mynp)))
+                pt_arr[myindex++][j] = pointDim;
+        }
+                    
+
 
 #ifdef DEBUG
     for(i = 0; i < *np; i++)

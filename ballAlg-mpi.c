@@ -3,6 +3,7 @@
 #include "gen_points.c"
 #include <omp.h>
 #include <string.h>
+#include "/Users/enrico/opt/usr/local/include/mpi.h"
 #include <mpi.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
@@ -248,19 +249,19 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
     //fprintf(stderr, "[%d] processor entered build_tree with set ", whichproc);
-    for (int i ; i < current_set_size; i++) {
-        //fprintf(stderr, "%ld, ", current_set[i]);
-    }
+    // for (int i ; i < current_set_size; i++) {
+    //     //fprintf(stderr, "%ld, ", current_set[i]);
+    // }
     //fprintf(stderr, "\n");
     int p = nprocs/(pow(2,rec_level));
     int next_number_of_subtrees = (pow(2,rec_level+1));
     int n = nthreads/(pow(2,rec_level));
 
-    double exec_findradius;
+    // double exec_findradius;
 
-    if(n>1) {
-        exec_findradius = -omp_get_wtime();
-    }
+    // if(n>1) {
+    //     exec_findradius = -omp_get_wtime();
+    // }
 
     #pragma omp atomic
     n_nodes++;
@@ -420,6 +421,8 @@ int main(int argc, char **argv){
     double elapsed_time;
     int me, nprocs;
     struct node* tree;
+    struct node* subtree;
+
 
     if(argc == 5) {
         nthreads = atoi(argv[4]);
@@ -442,7 +445,7 @@ int main(int argc, char **argv){
     
     //get input sample points (use the function from the guide)
 
-    points = get_points(argc, argv, &dim, &np);
+    points = get_points(argc, argv, &dim, &np, me, nprocs);
     
     if(me==0){
         printf("%d %ld\n",dim,np*2-1);
@@ -486,23 +489,37 @@ int main(int argc, char **argv){
         }
     }
 
-    ///
+    /// SUPER MAGIC
 
-    if(me==0)
+
+
+    // if(me==0)
         for(int j = 0; j < np; j++) current_set[j] = j;
-    else {
-        fprintf(stderr, "[%d] is waiting for  processor %d\n",me, me - aux);
-        MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
+    // else {
+    //     fprintf(stderr, "[%d] is waiting for  processor %d\n",me, me - aux);
+    //     MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
         
-	fprintf(stderr, "[%d] received: ",me);
-	for (int i = 0; i < recv_size; i++) {
-            fprintf(stderr, "%ld, ", current_set[i]);
-        }
-        fprintf(stderr, "\n ");
-	fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
-    }
+	// fprintf(stderr, "[%d] received: ",me);
+	// for (int i = 0; i < recv_size; i++) {
+    //         fprintf(stderr, "%ld, ", current_set[i]);
+    //     }
+    //     fprintf(stderr, "\n ");
+	// fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
+    // }
 
     
+    subtree = build_tree_distributed(id, np, 0, nprocs, me);
+
+    if(!me){
+        //receive x points from right half of processes
+    }
+    else if (me==1){
+        //receive y points from left half of processes
+    } else if("I'm right sided"){
+        //send to 0
+    } else if ("I'm left sided"){
+        //send to 1
+    }
 
     tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
@@ -518,4 +535,52 @@ int main(int argc, char **argv){
     MPI_Finalize();
 
     return 0;
+}
+
+struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
+    struct node* subtree;
+
+// FURTHEST POINTS A and B
+    if(!me){
+        //send point 0 to everyone
+        //receive as from everyone
+        //calculate A = max(as)
+        //send A to everyone
+        //receive local bs from everyone
+        //calculate B = max(bs)
+        //send B to everyone
+    } else {
+        //receive point 0 from p0
+        //calculate local a, furthest from 0
+        //send a to p0
+        //receive global A
+        //calculate local b as most distant from A
+        //send b to p0
+        //receive global B
+    }
+
+    //CALCULATE LOCAL AB LINE
+    //CALCULATE LOCAL ORTHOGONAL PROJECTION
+    
+    //DISTRIBUTED SORTING ALGORITHM
+
+    //FIND CENTER (MEDIAN POINT)
+    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
+
+    //FREE LOCAL ORTHOGONAL PROJECTION
+
+    // if(me == "process that has the center"){
+    //     SEND CENTER TO EVERYONE
+    //     FIND LOCAL MAX DISTANT
+    //     RECEIVE DISTANCES
+    //     CALCULATE RADIUS = MAX
+        
+    // } else {
+    //     RECEIVE CENTER 
+    //     FIND LOCAL MAX DISTANT
+    //     SENT TO "process that has the center"
+    // }   
+
+
+    return subtree;
 }
