@@ -405,6 +405,20 @@ void dump_tree(struct node *node, int me){
 
 }
 
+double * local_furthest_from_point(double ** set, long set_size, double * point){
+    double max=0;
+    double distance;
+    double * furthest;
+
+    for(int i=0;i<set_size;i++){
+        if((distance = distance_between_points(point,*(set+i))) > max){
+            max = distance;
+            furthest = *(set+i);
+        }
+    }
+    return furthest;
+}
+
 double * calc_A_dist(){
     double * first = (double *) malloc(dim*sizeof(double));
     if(!me){
@@ -493,20 +507,6 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
 
 
     return subtree;
-}
-
-double * local_furthest_from_point(double ** set, long set_size, double * point){
-    double max=0;
-    double distance;
-    double * furthest;
-
-    for(int i=0;i<set_size;i++){
-        if((distance = distance_between_points(point,*(set+i))) > max){
-            max = distance;
-            furthest = *(set+i);
-        }
-    }
-    return furthest;
 }
 
 void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_table){
