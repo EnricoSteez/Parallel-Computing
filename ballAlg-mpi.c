@@ -28,7 +28,7 @@ int dim;
 long np;
 long n_nodes;
 int nthreads;
-int me;
+int me, nprocs;
 
 void print_point(double* point, int dim) {
     int j;
@@ -442,7 +442,7 @@ double * calc_A_dist(){
     //calculate real A = furthest among 'a's
     double * A;
     if(!me)
-        double * A = local_furthest_from_point(as, nprocs, first);
+        A = local_furthest_from_point(as, nprocs, first);
 
     //Bcast A
     MPI_Bcast(A, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -467,46 +467,11 @@ double * calc_B_dist(double * A){
     //calculate real B = furthest among 'b's
     double * B;
     if(!me)
-        double * B = local_furthest_from_point(bs, nprocs, A);
+        B = local_furthest_from_point(bs, nprocs, A);
     //send B to everyone
     MPI_Bcast(B,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
     //now everyone has the real B of the set
     return B;
-}
-
-struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
-    struct node* subtree;
-
-// FURTHEST POINTS A and B
-    double * A = calc_A_dist();
-    double * B = calc_B_dist(A);
-
-    struct ProjectedPoint* proj_table;
-    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
-    //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
-    orthogonal_projection_v2(A, B, proj_table)
-    
-    //DISTRIBUTED SORTING ALGORITHM
-
-    //FIND CENTER (MEDIAN POINT)
-    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
-
-    //FREE LOCAL ORTHOGONAL PROJECTION
-
-    // if(me == "process that has the center"){
-    //     SEND CENTER TO EVERYONE
-    //     FIND LOCAL MAX DISTANT
-    //     RECEIVE DISTANCES
-    //     CALCULATE RADIUS = MAX
-        
-    // } else {
-    //     RECEIVE CENTER 
-    //     FIND LOCAL MAX DISTANT
-    //     SENT TO "process that has the center"
-    // }   
-
-
-    return subtree;
 }
 
 void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_table){
@@ -535,9 +500,44 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
     }
 }
 
+struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
+    struct node* subtree;
+
+// FURTHEST POINTS A and B
+    double * A = calc_A_dist();
+    double * B = calc_B_dist(A);
+
+    struct ProjectedPoint* proj_table;
+    proj_table = (struct ProjectedPoint*) malloc (np* sizeof(struct ProjectedPoint));
+    //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
+    orthogonal_projection_v2(A, B, proj_table)
+    
+    //DISTRIBUTED SORTING ALGORITHM
+
+    //FIND CENTER (MEDIAN POINT)
+    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
+
+    //FREE LOCAL ORTHOGONAL PROJECTION
+
+    // if(me == "process that has the center"){
+    //     SEND CENTER TO EVERYONE
+    //     FIND LOCAL MAX DISTANT
+    //     RECEIVE DISTANCES
+    //     CALCULATE RADIUS = MAX
+        
+    // } else {
+    //     RECEIVE CENTER 
+    //     FIND LOCAL MAX DISTANT
+    //     SENT TO "process that has the center"
+    // }   
+
+
+    return subtree;
+}
+
+
 int main(int argc, char **argv){
     double elapsed_time;
-    int nprocs;
     struct node* tree;
     struct node* subtree;
 
