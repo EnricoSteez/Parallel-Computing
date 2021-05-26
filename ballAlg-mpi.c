@@ -3,7 +3,6 @@
 #include "gen_points.c"
 #include <omp.h>
 #include <string.h>
-#include "/Users/enrico/opt/usr/local/include/mpi.h"
 #include <mpi.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m"
