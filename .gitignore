@@ -62,3 +62,7 @@ ballQuery
 
 makefile
 
+test*
+
+*.swp
+*.swo

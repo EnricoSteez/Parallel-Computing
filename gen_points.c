@@ -24,6 +24,22 @@ double **create_array_pts(int n_dims, long np)
 }
 
 
+
+void get_n_points(int array[], int indexes[], int npoints, int n, int first_proc, int first_point) {
+    if(n == 1) {
+        array[first_proc] = npoints;
+        if(first_proc != 0) indexes[first_proc] = indexes[first_proc-1] + array[first_proc-1];
+        else indexes[first_proc] = 0;
+        return;
+    }
+    else {
+        get_n_points(array, indexes, npoints/2, n/2, first_proc, first_point);
+        get_n_points(array, indexes, npoints-npoints/2, n-n/2, first_proc+n/2, first_point+npoints/2);       
+    }
+}
+
+
+
 double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int nprocs)
 {
     double **pt_arr;
@@ -58,7 +74,13 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int n
     seed = atoi(argv[3]);
     srandom(seed);
 
-    pt_arr = (double **) create_array_pts(*n_dims, mynp);
+    int array[nprocs];
+    int indexes[nprocs];
+
+    get_n_points(array, indexes, np, nprocs, 0, 0);
+
+    pt_arr = (double **) create_array_pts(*n_dims, array[me]);
+
 
     long myindex=0;
     double pointDim;
@@ -66,7 +88,7 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np, int me, int n
     for(i = 0; i < *np; i++)
         for(j = 0; j < *n_dims; j++){
             pointDim = RANGE * ((double) random()) / RAND_MAX;
-            if(i>=(atol(argv[2])/nprocs)*me && i<((atol(argv[2])/nprocs)*me + mynp)))
+            if(i >= indexes[me] && i < indexes[me] + array[me])
                 pt_arr[myindex++][j] = pointDim;
         }
                     
