@@ -405,12 +405,12 @@ void dump_tree(struct node *node, int me){
 
 }
 
-double * local_furthest_from_point(double ** set, long set_size, double * point){
+double * local_furthest_point_from_point(double ** set, long set_size, double * point){
     double max=0;
     double distance;
     double * furthest;
 
-    for(int i=0;i<set_size;i++){
+    for(long i=0;i<set_size;i++){
         if((distance = distance_between_points(point,*(set+i))) > max){
             max = distance;
             furthest = *(set+i);
@@ -428,7 +428,7 @@ double * calc_A_dist(){
     MPI_Bcast(first,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
     //now everyone has 'first' point
     //calculate local a, furthest from 'first' (new util function)
-    double * a = local_furthest_from_point(points, np, first);
+    double * a = local_furthest_point_from_point(points, np, first);
     double ** as;
     if(!me){
     //allocate gathering vector of points (to store as, only p0 needs to)
@@ -442,7 +442,7 @@ double * calc_A_dist(){
     //calculate real A = furthest among 'a's
     double * A;
     if(!me)
-        A = local_furthest_from_point(as, nprocs, first);
+        A = local_furthest_point_from_point(as, nprocs, first);
 
     //Bcast A
     MPI_Bcast(A, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -452,7 +452,7 @@ double * calc_A_dist(){
 
 double * calc_B_dist(double * A){
     //calculate local b
-    double * b = local_furthest_from_point(points, np, A);
+    double * b = local_furthest_point_from_point(points, np, A);
     double ** bs;
     //allocate gathering vector of points (to store bs, only p0 needs to)
     if(!me){
@@ -467,7 +467,7 @@ double * calc_B_dist(double * A){
     //calculate real B = furthest among 'b's
     double * B;
     if(!me)
-        B = local_furthest_from_point(bs, nprocs, A);
+        B = local_furthest_point_from_point(bs, nprocs, A);
     //send B to everyone
     MPI_Bcast(B,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
     //now everyone has the real B of the set
@@ -500,8 +500,8 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
     }
 }
 
-struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
-    struct node* subtree;
+struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc, long id){
+    struct node* node;
 
 // FURTHEST POINTS A and B
     double * A = calc_A_dist();
@@ -511,13 +511,57 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
     proj_table = (struct ProjectedPoint*) malloc (np* sizeof(struct ProjectedPoint));
     //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
     orthogonal_projection_v2(A, B, proj_table);
-    
-    //DISTRIBUTED SORTING ALGORITHM
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    //---+---+---+---+---+---+---+---+---+---+---+---DISTRIBUTED SORTING ALGORITHM---+---+---+---+---+---+---+---+---+---+---+---
 
     //FIND CENTER (MEDIAN POINT)
-    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
+    if(np%2==0){ //process mid-right sends its first point to process mid-left that will calculate the center
+        int midRight = nprocs/2;
+        int midLeft = midRight-1;
+        double * center = (double *) malloc(dim * sizeof(double));
 
-    //FREE LOCAL ORTHOGONAL PROJECTION
+        if(me==midRight){
+            MPI_Send(proj_table[0].projectedCoords, dim, MPI_DOUBLE, midLeft, 0, MPI_COMM_WORLD);
+            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+        } else if(me==midLeft){ //receive first point of the projection of mid-right process then compute the center as average with my last projected point
+            double * midRightFirstProjectedPoint = (double *) malloc(dim * sizeof(double));
+            MPI_Recv(midRightFirstProjectedPoint, dim, MPI_DOUBLE, midRight, 0, MPI_COMM_WORLD);
+            for(int i = 0; i < dim; i++){
+                center[i] = (proj_table[np-1].projectedCoords[i] + midRightFirstProjectedPoint[i] / 2;
+            }
+            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+        }
+        } else { //everyone else just receives the broadcast of the center point
+            MPI_Bcast(center,dim,MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+        }
+
+        //now everyone has the center of the ball and can compute its local max radius
+        double * furthestFromCenter = local_furthest_point_from_point(points, np, center);
+        double** furthests;
+        if(me==midLeft) {
+            furthests = (double **) malloc (nprocs*sizeof(double *));
+            for(int i=0; i<nprocs;i++){
+                *(furthests+i) = (double *) malloc (dim*sizeof(double));
+            }
+        }
+        //gather furthest points from center in midLeft node
+        MPI_Gather(furthestFromCenter, dim, MPI_DOUBLE, furthests, dim, MPI_DOUBLE, midLeft, MPI_COMM_WORLD);
+
+        if(me==midLeft){
+            furthestFromCenter = local_furthest_point_from_point(furthests, nprocs, center);
+            double radius = distance_between_points(furthestFromCenter, center);
+            node->radius = radius;
+            //TODO JOSE FINISH COMPUTATION OF CURRENT NODE
+        }
+
+        free(proj_table)
+
+
+    } //ODD SET, CENTER IS 
+    else {
+        
+    }
 
     // if(me == "process that has the center"){
     //     SEND CENTER TO EVERYONE
