@@ -28,6 +28,7 @@ int dim;
 long np;
 long n_nodes;
 int nthreads;
+int me;
 
 void print_point(double* point, int dim) {
     int j;
@@ -536,7 +537,7 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
 
 int main(int argc, char **argv){
     double elapsed_time;
-    int me, nprocs;
+    int nprocs;
     struct node* tree;
     struct node* subtree;
 
