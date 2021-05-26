@@ -405,125 +405,7 @@ void dump_tree(struct node *node, int me){
 }
 
 
-int main(int argc, char **argv){
-    double elapsed_time;
-    int me, nprocs;
-    struct node* tree;
-    struct node* subtree;
 
-
-    if(argc == 5) {
-        nthreads = atoi(argv[4]);
-        argc = argc-1;
-        omp_set_num_threads(nthreads);
-    }
-    else {
-        nthreads = omp_get_num_procs();
-    }
-    omp_set_nested(1);
-
-    MPI_Status status;
-    MPI_Init(&argc, &argv);
-    MPI_Barrier(MPI_COMM_WORLD);
-    elapsed_time = -MPI_Wtime();
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &me);
-    
-    fprintf(stderr, "Hi from: [%d]\n", me); 
-    
-    //get input sample points (use the function from the guide)
-
-    points = get_points(argc, argv, &dim, &np, me, nprocs);
-    
-    if(me==0){
-        printf("%d %ld\n",dim,np*2-1);
-    }
-    
-    long* current_set = (long*) malloc(np * sizeof(long));
-
-    // #pragma omp parallel for
-    
-
-    n_nodes = 0;
-
-    int recv_size = np;
-
-    // MAGIC THAT WORKS
-
-    int aux;
-    int level = -1;
-    long id = 0;
-    for (int i = 0; pow(2, i) <= me; i++) {
-        level = i;
-        aux = pow(2, i);
-        if(recv_size % 2 == 0) {
-            recv_size = recv_size/2;
-            if((int)((me - aux) / aux) % 2 == 0) {
-                id += 1;
-            }
-            else {
-                id += (recv_size * 2);
-            }
-        }
-        else {
-            if((int)((me - aux) / aux) % 2 == 0) {
-                recv_size = (recv_size - 1) /2;
-                id += 1;
-            }
-            else {
-                recv_size = (recv_size + 1) /2;
-                id += ((recv_size-1) *2);
-            }
-        }
-    }
-
-    /// SUPER MAGIC
-
-
-
-    // if(me==0)
-        for(int j = 0; j < np; j++) current_set[j] = j;
-    // else {
-    //     fprintf(stderr, "[%d] is waiting for  processor %d\n",me, me - aux);
-    //     MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
-        
-	// fprintf(stderr, "[%d] received: ",me);
-	// for (int i = 0; i < recv_size; i++) {
-    //         fprintf(stderr, "%ld, ", current_set[i]);
-    //     }
-    //     fprintf(stderr, "\n ");
-	// fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
-    // }
-
-    
-    subtree = build_tree_distributed(id, np, 0, nprocs, me);
-
-    if(!me){
-        //receive x points from right half of processes
-    }
-    else if (me==1){
-        //receive y points from left half of processes
-    } else if("I'm right sided"){
-        //send to 0
-    } else if ("I'm left sided"){
-        //send to 1
-    }
-
-    tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
-    // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
-    MPI_Barrier(MPI_COMM_WORLD);
-    elapsed_time += MPI_Wtime();
-    if(me==0){
-        printf("%d %ld\n",dim,np*2-1);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    dump_tree(tree, me);
-    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
-    free(tree);
-    MPI_Finalize();
-
-    return 0;
-}
 
 struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
     struct node* subtree;
@@ -653,4 +535,124 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
         delta = 0;
         gamma = 0;
     }
+}
+
+int main(int argc, char **argv){
+    double elapsed_time;
+    int me, nprocs;
+    struct node* tree;
+    struct node* subtree;
+
+
+    if(argc == 5) {
+        nthreads = atoi(argv[4]);
+        argc = argc-1;
+        omp_set_num_threads(nthreads);
+    }
+    else {
+        nthreads = omp_get_num_procs();
+    }
+    omp_set_nested(1);
+
+    MPI_Status status;
+    MPI_Init(&argc, &argv);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed_time = -MPI_Wtime();
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &me);
+    
+    fprintf(stderr, "Hi from: [%d]\n", me); 
+    
+    //get input sample points (use the function from the guide)
+
+    points = get_points(argc, argv, &dim, &np, me, nprocs);
+    
+    if(me==0){
+        printf("%d %ld\n",dim,np*2-1);
+    }
+    
+    long* current_set = (long*) malloc(np * sizeof(long));
+
+    // #pragma omp parallel for
+    
+
+    n_nodes = 0;
+
+    int recv_size = np;
+
+    // MAGIC THAT WORKS
+
+    int aux;
+    int level = -1;
+    long id = 0;
+    for (int i = 0; pow(2, i) <= me; i++) {
+        level = i;
+        aux = pow(2, i);
+        if(recv_size % 2 == 0) {
+            recv_size = recv_size/2;
+            if((int)((me - aux) / aux) % 2 == 0) {
+                id += 1;
+            }
+            else {
+                id += (recv_size * 2);
+            }
+        }
+        else {
+            if((int)((me - aux) / aux) % 2 == 0) {
+                recv_size = (recv_size - 1) /2;
+                id += 1;
+            }
+            else {
+                recv_size = (recv_size + 1) /2;
+                id += ((recv_size-1) *2);
+            }
+        }
+    }
+
+    /// SUPER MAGIC
+
+
+
+    // if(me==0)
+        for(int j = 0; j < np; j++) current_set[j] = j;
+    // else {
+    //     fprintf(stderr, "[%d] is waiting for  processor %d\n",me, me - aux);
+    //     MPI_Recv( current_set , recv_size , MPI_LONG , me - aux , 0 , MPI_COMM_WORLD , &status);
+        
+	// fprintf(stderr, "[%d] received: ",me);
+	// for (int i = 0; i < recv_size; i++) {
+    //         fprintf(stderr, "%ld, ", current_set[i]);
+    //     }
+    //     fprintf(stderr, "\n ");
+	// fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
+    // }
+
+    
+    subtree = build_tree_distributed(id, np, 0, nprocs, me);
+
+    if(!me){
+        //receive x points from right half of processes
+    }
+    else if (me==1){
+        //receive y points from left half of processes
+    } else if("I'm right sided"){
+        //send to 0
+    } else if ("I'm left sided"){
+        //send to 1
+    }
+
+    tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
+    // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed_time += MPI_Wtime();
+    if(me==0){
+        printf("%d %ld\n",dim,np*2-1);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    dump_tree(tree, me);
+    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
+    free(tree);
+    MPI_Finalize();
+
+    return 0;
 }
