@@ -404,58 +404,6 @@ void dump_tree(struct node *node, int me){
 
 }
 
-
-
-
-struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
-    struct node* subtree;
-
-// FURTHEST POINTS A and B
-    double * A = calc_A_dist();
-    double * B = calc_B_dist(A);
-
-    struct ProjectedPoint* proj_table;
-    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
-    //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
-    orthogonal_projection_v2(A, B, proj_table)
-    
-    //DISTRIBUTED SORTING ALGORITHM
-
-    //FIND CENTER (MEDIAN POINT)
-    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
-
-    //FREE LOCAL ORTHOGONAL PROJECTION
-
-    // if(me == "process that has the center"){
-    //     SEND CENTER TO EVERYONE
-    //     FIND LOCAL MAX DISTANT
-    //     RECEIVE DISTANCES
-    //     CALCULATE RADIUS = MAX
-        
-    // } else {
-    //     RECEIVE CENTER 
-    //     FIND LOCAL MAX DISTANT
-    //     SENT TO "process that has the center"
-    // }   
-
-
-    return subtree;
-}
-
-double * local_furthest_from_point(double ** set, long set_size, double * point){
-    double max=0;
-    double distance;
-    double * furthest;
-
-    for(int i=0;i<set_size;i++){
-        if((distance = distance_between_points(point,*(set+i))) > max){
-            max = distance;
-            furthest = *(set+i);
-        }
-    }
-    return furthest;
-}
-
 double * calc_A_dist(){
     double * first = (double *) malloc(dim*sizeof(double));
     if(!me){
@@ -509,6 +457,55 @@ double * calc_B_dist(double * A){
     MPI_Bcast(B,dim,MPI_DOUBLE,0,MPI_COMM_WORLD);
     //now everyone has the real B of the set
     return B;
+}
+
+struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc){
+    struct node* subtree;
+
+// FURTHEST POINTS A and B
+    double * A = calc_A_dist();
+    double * B = calc_B_dist(A);
+
+    struct ProjectedPoint* proj_table;
+    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
+    //CALCULATE LOCAL ORTHOGONAL PROJECTION TABLE
+    orthogonal_projection_v2(A, B, proj_table)
+    
+    //DISTRIBUTED SORTING ALGORITHM
+
+    //FIND CENTER (MEDIAN POINT)
+    //MEMORISE WHICH PROCESS HAS THE CENTER (ONE OF THE TWO CENTRAL PROCESSES(?))
+
+    //FREE LOCAL ORTHOGONAL PROJECTION
+
+    // if(me == "process that has the center"){
+    //     SEND CENTER TO EVERYONE
+    //     FIND LOCAL MAX DISTANT
+    //     RECEIVE DISTANCES
+    //     CALCULATE RADIUS = MAX
+        
+    // } else {
+    //     RECEIVE CENTER 
+    //     FIND LOCAL MAX DISTANT
+    //     SENT TO "process that has the center"
+    // }   
+
+
+    return subtree;
+}
+
+double * local_furthest_from_point(double ** set, long set_size, double * point){
+    double max=0;
+    double distance;
+    double * furthest;
+
+    for(int i=0;i<set_size;i++){
+        if((distance = distance_between_points(point,*(set+i))) > max){
+            max = distance;
+            furthest = *(set+i);
+        }
+    }
+    return furthest;
 }
 
 void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_table){
