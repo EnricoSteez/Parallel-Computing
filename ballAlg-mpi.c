@@ -500,7 +500,7 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
     }
 }
 
-struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc, long id){
+struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc, long id, int level){
     struct node* node;
 
 // FURTHEST POINTS A and B
@@ -590,6 +590,18 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
         }
     }
 
+    if(pow(2,level)==nprocs){ //stop distributed phase, initiate regular recursive phase
+        //TODO JOSE PLEASE FIGURE OUT THE PARAMETERS BASED ON 'me' and on what 'me' has after sorting
+        //return build_tree(0)...
+    }
+    else {
+        // //here we should do something like 
+        // if(me=='process that holds the center')
+        //     return build_tree_distributed(...);
+        // else
+        //     build_tree_distributed(...); //same arguments but without returning the point
+    }
+    
     return node;
 }
 
@@ -684,18 +696,7 @@ int main(int argc, char **argv){
     // }
 
     
-    subtree = build_tree_distributed(id, np, 0, nprocs, me);
-
-    if(!me){
-        //receive x points from right half of processes
-    }
-    else if (me==1){
-        //receive y points from left half of processes
-    } else if("I'm right sided"){
-        //send to 0
-    } else if ("I'm left sided"){
-        //send to 1
-    }
+    subtree = build_tree_distributed(id, np, 0, nprocs, me, 0);
 
     tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
