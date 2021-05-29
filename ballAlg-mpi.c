@@ -129,7 +129,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
-                    aux_center[d] = phi * (b - a) + a;
+                    center_aux[d] = phi * (b - a) + a;
                 }
             }
 
@@ -169,7 +169,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
 
 
             
-            if(current_set_size % 2 == 1 && p == current_set/2 ) {
+            if(current_set_size % 2 == 1 && p == current_set_size/2 ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
@@ -177,15 +177,15 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
                 }
             }
 
-            else if(current_set_size % 2 == 0 && p == (current_set/2)-1 ) {
+            else if(current_set_size % 2 == 0 && p == (current_set_size/2)-1 ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
-                    aux_center[d] = phi * (b - a) + a;
+                    center_aux[d] = phi * (b - a) + a;
                 }
             }
 
-            else if(current_set_size % 2 == 0 && p == (current_set/2) ) {
+            else if(current_set_size % 2 == 0 && p == (current_set_size/2) ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
@@ -347,13 +347,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         proj_table[0].idx = a;
         proj_table[1].idx = b;
 
-        proj_table[0].projectedCoords = (double*) malloc(dim * sizeof(double));
-        proj_table[1].projectedCoords = (double*) malloc(dim * sizeof(double));
 
-        for(int i = 0; i < dim; i++) {
-            proj_table[0].projectedCoords[i] = points[a][i];
-            proj_table[1].projectedCoords[i] = points[b][i];
-        }
+        proj_table[0].projectedCoords = points[a][0];
+        proj_table[1].projectedCoords = points[b][0];
 
         center = (double*)malloc(dim*sizeof(double));
         for (int d = 0; d < dim; d++) {
