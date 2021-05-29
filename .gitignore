@@ -61,4 +61,5 @@ dkms.conf
 ballQuery
 
 makefile
-
+*.swp
+*.swo
