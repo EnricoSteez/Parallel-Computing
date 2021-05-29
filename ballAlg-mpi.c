@@ -20,7 +20,7 @@ typedef struct node {
 
 struct ProjectedPoint {
     long idx;
-    double *projectedCoords;
+    double projectedCoords;
 };
 
 double ** points;
@@ -43,7 +43,7 @@ void print_point(double* point, int dim) {
 
 static int compare (const void * a, const void * b)
 {
-    double diff = ( (*(struct ProjectedPoint *) a).projectedCoords[0] - (*(struct ProjectedPoint*) b).projectedCoords[0] );
+    double diff = ( (*(struct ProjectedPoint *) a).projectedCoords - (*(struct ProjectedPoint*) b).projectedCoords);
     if(diff < 0) {
         return -1;
     }
@@ -95,10 +95,13 @@ void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoi
     }
 }
 
-void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table, int n){
+double* orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table, int n) {
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
+    
+    double* center = (double*)malloc(dim * sizeof(double));
+    double* center_aux = (double*)malloc(dim * sizeof(double));
 
     if(n > 1) {
 
@@ -113,13 +116,36 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
             }
             phi = delta / gamma;
 
-            proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                proj_table[p].projectedCoords[d] = phi * (b - a) + a;
+            if(current_set_size % 2 == 1 && p == current_set/2 ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    center[d] = phi * (b - a) + a;
+                }
             }
+
+            else if(current_set_size % 2 == 0 && p == (current_set/2)-1 ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    aux_center[d] = phi * (b - a) + a;
+                }
+            }
+
+            else if(current_set_size % 2 == 0 && p == (current_set/2) ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    center[d] = ((phi * (b - a) + a) + center_aux[d])/2;
+                }
+            }
+
+            a = points[furthest_points[0]][0];
+            b = points[furthest_points[1]][0];
+            if(d == 0)
+                proj_table[p].projectedCoords = phi * (b - a) + a;
+
 
             proj_table[p].idx = current_set[p];
 
@@ -141,13 +167,36 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
             }
             phi = delta / gamma;
 
-            proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                proj_table[p].projectedCoords[d] = phi * (b - a) + a;
+            
+            if(current_set_size % 2 == 1 && p == current_set/2 ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    center[d] = phi * (b - a) + a;
+                }
             }
+
+            else if(current_set_size % 2 == 0 && p == (current_set/2)-1 ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    aux_center[d] = phi * (b - a) + a;
+                }
+            }
+
+            else if(current_set_size % 2 == 0 && p == (current_set/2) ) {
+                for(d = 0; d < dim; d++){
+                    a = points[furthest_points[0]][d];
+                    b = points[furthest_points[1]][d];
+                    center[d] = ((phi * (b - a) + a) + center_aux[d])/2;
+                }
+            }
+
+            a = points[furthest_points[0]][0];
+            b = points[furthest_points[1]][0];
+            if(d == 0)
+                proj_table[p].projectedCoords = phi * (b - a) + a;
 
             proj_table[p].idx = current_set[p];
 
@@ -156,6 +205,7 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
         }
     }
 
+    return center;
 
 }
 
@@ -278,6 +328,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     struct ProjectedPoint* proj_table;
     proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
+    double* center;
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
@@ -286,7 +337,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         a = furthest[0];
         b = furthest[1];
         //perform the orthogonal projection of all points onto line ab;
-        orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
+        center = orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
     }
     else {
 
@@ -304,14 +355,19 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
             proj_table[1].projectedCoords[i] = points[b][i];
         }
 
+        center = (double*)malloc(dim*sizeof(double));
+        for (int d = 0; d < dim; d++) {
+            center[d] = (a[d] + b[d])/2
+        }
+
 
     }
 
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
 
-    double* center;
+    //double* center;
 
-    center = find_center(current_set_size, proj_table);
+    //center = find_center(current_set_size, proj_table);
 
     rearrange_set(current_set_size, current_set, proj_table, rec_level, n);
 
