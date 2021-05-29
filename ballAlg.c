@@ -17,7 +17,7 @@ typedef struct node {
 
 struct ProjectedPoint {
     long idx;
-    double *projectedCoords;
+    double projectedCoords;
 };
 
 double ** points;
@@ -39,7 +39,7 @@ void print_point(double* point, int dim) {
 
 static int compare (const void * a, const void * b)
 {
-    double diff = ( (*(struct ProjectedPoint *) a).projectedCoords[0] - (*(struct ProjectedPoint*) b).projectedCoords[0] );
+    double diff = ( (*(struct ProjectedPoint *) a).projectedCoords - (*(struct ProjectedPoint*) b).projectedCoords);
     if(diff < 0) {
         return -1;
     }
@@ -49,43 +49,21 @@ static int compare (const void * a, const void * b)
     return 0;
 }
 
-
-double* find_center_and_rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
-
-    long lindex=0;
-    double* pointProjection;
-    long rindex = current_set_size/2;
-    double* center = (double *) malloc(dim*sizeof(double));
-
-    if((current_set_size % 2) != 0){//ODD SET
-        long idx_median = current_set_size / 2;
-        memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
-    }
-    else{ //EVEN SET
-
-        long idx_median_1 = current_set_size / 2 -1;
-        long idx_median_2 = current_set_size / 2;
-
-        //center to be returned
-
-        for(int i = 0; i < dim; i++){
-            center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
-        }
-    }
+void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table){
 
     for(long i=0; i < current_set_size; i++){
         *(current_set+i) = proj_table[i].idx;
     }
-    
-    return center;
 }
 
 //TODO PARALLELISE THIS MESS
-void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table){
+double* orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
 
+    double* center = (double*)malloc(dim * sizeof(double));
+    double* center_aux = (double*)malloc(dim * sizeof(double));
 
     for(long p = 0; p < current_set_size; p++){
         for(d = 0; d < dim; d++){
@@ -97,19 +75,43 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
         }
         phi = delta / gamma;
 
-        proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
-
-        for(d = 0; d < dim; d++){
-            a = points[furthest_points[0]][d];
-            b = points[furthest_points[1]][d];
-            proj_table[p].projectedCoords[d] = phi * (b - a) + a;
+        if(current_set_size % 2 == 1 && p == current_set_size/2 ) {
+            for(d = 0; d < dim; d++){
+                a = points[furthest_points[0]][d];
+                b = points[furthest_points[1]][d];
+                center[d] = phi * (b - a) + a;
+            }
         }
+
+        else if(current_set_size % 2 == 0 && p == (current_set_size/2)-1 ) {
+            for(d = 0; d < dim; d++){
+                a = points[furthest_points[0]][d];
+                b = points[furthest_points[1]][d];
+                center_aux[d] = phi * (b - a) + a;
+            }
+        }
+
+        else if(current_set_size % 2 == 0 && p == (current_set_size/2) ) {
+            for(d = 0; d < dim; d++){
+                a = points[furthest_points[0]][d];
+                b = points[furthest_points[1]][d];
+                center[d] = ((phi * (b - a) + a) + center_aux[d])/2;
+
+            }
+        }
+
+
+        a = points[furthest_points[0]][0];
+        b = points[furthest_points[1]][0];
+        if(d == 0)
+            proj_table[p].projectedCoords = phi * (b - a) + a;
 
         proj_table[p].idx = current_set[p];
 
         delta = 0;
         gamma = 0;
     }
+    return center;
 }
 
 double distance_between_points(double* point1, double* point2) {
@@ -179,7 +181,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     struct ProjectedPoint* proj_table;
     proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
-    
+    double* center;
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
@@ -187,7 +189,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         a = furthest[0];
         b = furthest[1];
         //perform the orthogonal projection of all points onto line ab;
-        orthogonal_projection(current_set_size, current_set, furthest, proj_table);
+        center = orthogonal_projection(current_set_size, current_set, furthest, proj_table);
     }
     else {
         //if there are only 2 points, no need to make orthogonal projection
@@ -196,12 +198,12 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         proj_table[0].idx = a;
         proj_table[1].idx = b;
 
-        proj_table[0].projectedCoords = (double*) malloc(dim * sizeof(double));
-        proj_table[1].projectedCoords = (double*) malloc(dim * sizeof(double));
+        proj_table[0].projectedCoords = points[a][0];
+        proj_table[1].projectedCoords = points[b][0];
 
-        for(int i = 0; i < dim; i++) {
-            proj_table[0].projectedCoords[i] = points[a][i];
-            proj_table[1].projectedCoords[i] = points[b][i];
+        center = (double*)malloc(dim*sizeof(double));
+        for (int d = 0; d < dim; d++) {
+            center[d] = (points[a][d] + points[b][d])/2;
         }
     }
     
@@ -211,7 +213,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
 
     //compute the center, defined as the median point over all projections;
-    double* center = find_center_and_rearrange_set(current_set_size, current_set, proj_table);
+    rearrange_set(current_set_size, current_set, proj_table);
 
     free(proj_table);
 
