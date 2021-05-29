@@ -247,11 +247,6 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
 }
 
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
-    //fprintf(stderr, "[%d] processor entered build_tree with set ", whichproc);
-    for (int i ; i < current_set_size; i++) {
-        //fprintf(stderr, "%ld, ", current_set[i]);
-    }
-    //fprintf(stderr, "\n");
     int p = nprocs/(pow(2,rec_level));
     int next_number_of_subtrees = (pow(2,rec_level+1));
     int n = nthreads/(pow(2,rec_level));
@@ -266,7 +261,6 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     n_nodes++;
 
     if(current_set_size == 1) {
-        //fprintf(stderr, "[%d] will stop recursion\n", whichproc);
         //stop recursion
         struct node* res = (struct node*)malloc(sizeof(struct node));
         res->id = node_index;
@@ -275,34 +269,27 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         res->right = NULL;
         res->radius = 0;
 
-        //fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
         return res;
     }
 
-    //fprintf(stderr, "[%d] 1\n", whichproc);
 
     long a;
     long b;
 
     struct ProjectedPoint* proj_table;
     proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
-    //fprintf(stderr, "[%d] 2\n", whichproc);
     if(current_set_size > 2) {
-        //fprintf(stderr, "[%d] 2.5\n", whichproc);
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
 
         furthest_points(furthest, current_set, current_set_size, n);
         a = furthest[0];
         b = furthest[1];
-        //fprintf(stderr, "[%d] 3\n", whichproc);
         //perform the orthogonal projection of all points onto line ab;
         orthogonal_projection(current_set_size, current_set, furthest, proj_table, n);
-        //fprintf(stderr, "[%d] 4\n", whichproc);
     }
     else {
 
-        //fprintf(stderr, "[%d] 3.1\n", whichproc);
         //if there are only 2 points, no need to make orthogonal projection
         a = current_set[0];
         b = current_set[1];
@@ -317,48 +304,34 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
             proj_table[1].projectedCoords[i] = points[b][i];
         }
 
-        //fprintf(stderr, "[%d] 4.1\n", whichproc);
 
     }
 
     qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
-    //fprintf(stderr, "[%d] 5\n", whichproc);
 
     double* center;
 
     center = find_center(current_set_size, proj_table);
-    //fprintf(stderr, "[%d] 5.center\n", whichproc);
 
     rearrange_set(current_set_size, current_set, proj_table, rec_level, n);
-    //fprintf(stderr, "[%d] 5.rearrange\n", whichproc);
 
     free(proj_table);
     
     struct node* res = (struct node*)malloc(sizeof(struct node));
     res->coordinates = center;
-    //fprintf(stderr, "[%d] 5.center = %lf\n", whichproc,center[0]);
-    // fprintf(stderr, "[%d] Finding radius of set:\n", whichproc);
-    // for(int i=0 ; i<current_set_size ; i++){
-    //     fprintf(stderr, "[%d] %d:\n", whichproc,current_set[i]);
-    // }
 
-    
     res->radius = find_radius(center, current_set, current_set_size,rec_level, n);
-    //fprintf(stderr, "[%d] 5.radius = %lf\n", whichproc, res->radius);
-
 
     res->id = node_index;
 
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
 
-    //fprintf(stderr, "[%d] 6\n", whichproc);
     //MPI
     res->left = NULL;
     res -> right = NULL;
     if(whichproc + pow(2, rec_level) < nprocs) {
 
-        //I NEED THE POINTER
         fprintf(stderr, "[%d] will send to processor %lf\n",whichproc, whichproc + pow(2, rec_level));
         MPI_Send( current_set , nextLeftSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
         fprintf(stderr, "[%d] sent!\n", whichproc);
@@ -370,14 +343,12 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
         
     } else { //OPENMP
-        //fprintf(stderr, "[%d] will execute tasks\n",whichproc);
         #pragma omp task if(n>1) 
         res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
         #pragma omp task if(n>1) 
         res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc);
     }
 
-    //fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
     return res;
 }
 
