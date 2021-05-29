@@ -54,7 +54,6 @@ static int compare (const void * a, const void * b)
     return 0;
 }
 
-
 double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
 
     long lindex=0;
@@ -236,15 +235,19 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
     furthest[1] =furthest_point_from_point(points[a], current_set, current_set_size, n);
 }
 
-struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
+struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs) {
     //fprintf(stderr, "[%d] processor entered build_tree with set ", whichproc);
     // for (int i ; i < current_set_size; i++) {
     //     //fprintf(stderr, "%ld, ", current_set[i]);
     // }
     //fprintf(stderr, "\n");
-    int p = nprocs/(pow(2,rec_level));
     int next_number_of_subtrees = (pow(2,rec_level+1));
-    int n = nthreads/(pow(2,rec_level));
+    int n=1;
+
+    //avoid computing this power when it's not phisically possible anymore
+    // 2^5 threads is about the max we're ever gonna get
+    if(rec_level<=5)
+        n = nthreads/(pow(2,rec_level));
 
     // double exec_findradius;
 
@@ -335,39 +338,18 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     
     res->radius = find_radius(center, current_set, current_set_size,rec_level, n);
     //fprintf(stderr, "[%d] 5.radius = %lf\n", whichproc, res->radius);
-
-
     res->id = node_index;
-
     long nextLeftSize = current_set_size/2;
     long nextRightSize = current_set_size%2==0 ? current_set_size/2 :current_set_size/2+1;
-
-    //fprintf(stderr, "[%d] 6\n", whichproc);
-    //MPI
-    res->left = NULL;
-    res -> right = NULL;
-    if(whichproc + pow(2, rec_level) < nprocs) {
-
-        //I NEED THE POINTER
-        fprintf(stderr, "[%d] will send to processor %lf\n",whichproc, whichproc + pow(2, rec_level));
-        MPI_Send( current_set , nextLeftSize , MPI_LONG ,  whichproc + pow(2, rec_level), 0 , MPI_COMM_WORLD);
-        fprintf(stderr, "[%d] sent!\n", whichproc);
-
-        res->right = build_tree(node_index + nextLeftSize*2, current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc); 
-       
-        //send left and right to two different processes
-        //send 
-
-        
-    } else { //OPENMP
-        //fprintf(stderr, "[%d] will execute tasks\n",whichproc);
-        #pragma omp task if(n>1) 
-        res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
-        #pragma omp task if(n>1) 
-        res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc);
-    }
-
-    //fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
+    
+    //OPENMP
+    fprintf(stderr, "[%d] will execute tasks\n",whichproc);
+    #pragma omp task if(n>1) 
+    res->left = build_tree(node_index + 1, current_set, nextLeftSize, rec_level + 1, nprocs, whichproc);
+    #pragma omp task if(n>1) 
+    res->right = build_tree(node_index +nextLeftSize* 2 , current_set+current_set_size/2, nextRightSize, rec_level + 1, nprocs, whichproc);
+    
+    fprintf(stderr, "[%d] will return %ld\n", whichproc, res->id);
     return res;
 }
 
@@ -500,7 +482,7 @@ void orthogonal_projection_v2(double* A, double* B, struct ProjectedPoint* proj_
     }
 }
 
-struct node* build_tree_distributed(long node_index, long set_size, long rec_level, int nprocs, int whichproc, long id, int level){
+struct node* build_tree_distributed(){
     struct node* node;
 
 // FURTHEST POINTS A and B
@@ -590,19 +572,17 @@ struct node* build_tree_distributed(long node_index, long set_size, long rec_lev
         }
     }
 
-    if(pow(2,level)==nprocs){ //stop distributed phase, initiate regular recursive phase
-        //TODO JOSE PLEASE FIGURE OUT THE PARAMETERS BASED ON 'me' and on what 'me' has after sorting
-        //return build_tree(0)...
-    }
-    else {
-        // //here we should do something like 
-        // if(me=='process that holds the center')
-        //     return build_tree_distributed(...);
-        // else
-        //     build_tree_distributed(...); //same arguments but without returning the point
-    }
+    //stop distributed phase, initiate regular recursive phase
+    //TODO JOSE PLEASE FIGURE OUT THE PARAMETERS BASED ON 'me' and on what 'me' has after sorting
+    //return build_tree(0)...
     
-    return node;
+    if(me==midRight){
+        //store center in memory
+    }
+
+    return build_tree();
+
+    return ;
 }
 
 
@@ -628,6 +608,56 @@ int main(int argc, char **argv){
     elapsed_time = -MPI_Wtime();
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
+
+    MPI_Group group_world;
+    MPI_Group subgroup;
+    MPI_Comm subgroupCommunicator;
+    int* process_ranks;
+     
+    int n_comms = nprocs-1; //number of communicators needed for the distributed algorithm
+    MPI_Comm comm[n_comms]; //
+    comm[0] = MPI_COMM_WORLD;
+    int* group;
+    int w;
+
+    for(int i = 1 ; i < n_comms ; i++){ //start from 1 because 0 is always MPI_COMM_WORLD
+        //get the ranks of the processes in this communicator
+        int commsThisLevel = pow(2,i);//there are 2^i communicators (groups) in level i
+        //for every communicator there are nprocs/2^i processes
+        process_ranks = (int*) malloc(nprocs/commsThisLevel*sizeof(int));
+        w=0;
+        for(int j = 0 ; j<commsThisLevel; j++){
+            //if I belong to group j
+            if(me >= j*nprocs/commsThisLevel && me < (j+1)*nprocs/commsThisLevel){
+                for(int k = j*nprocs/commsThisLevel; k < (j+1)*nprocs/commsThisLevel; k++) { //loop through all the processes in this group
+                    process_ranks[w++] = k;
+                }
+                //get the group under MPI_COMM_WORLD 
+                MPI_Comm_group(MPI_COMM_WORLD, &group_world);
+                // create the new group
+                MPI_Group_incl(group_world, nprocs/commsThisLevel, process_ranks, &subgroup);
+                // create the new communicator
+                MPI_Comm_create(MPI_COMM_WORLD, subgroup, &subgroupCommunicator);
+                comm[i] = subgroupCommunicator;
+            }
+        }
+       
+        
+    }
+
+    switch(nprocs){
+        case 4: {
+            if(me < nprocs/2){
+                //communicator with
+            } else {
+
+            }
+        }
+
+    }
+
+    // make a list of processes in the new communicator process_ranks = (int*) malloc(q*sizeof(int));
+    
     
     fprintf(stderr, "Hi from: [%d]\n", me); 
     
@@ -640,9 +670,6 @@ int main(int argc, char **argv){
     }
     
     long* current_set = (long*) malloc(np * sizeof(long));
-
-    // #pragma omp parallel for
-    
 
     n_nodes = 0;
 
@@ -677,10 +704,6 @@ int main(int argc, char **argv){
         }
     }
 
-    /// SUPER MAGIC
-
-
-
     // if(me==0)
         for(int j = 0; j < np; j++) current_set[j] = j;
     // else {
@@ -695,10 +718,7 @@ int main(int argc, char **argv){
 	// fprintf(stderr, "[%d] ROOT NODE: %ld\n",me,id);
     // }
 
-    
-    subtree = build_tree_distributed(id, np, 0, nprocs, me, 0);
-
-    tree = build_tree(id, current_set, recv_size, level + 1, nprocs, me);
+    tree = build_tree_distributed(0, np, recv_size, level + 1,);
     // fprintf(stderr, "[%d] will dump tree %ld, pointer: %p\n",me, tree->id, tree);
     MPI_Barrier(MPI_COMM_WORLD);
     elapsed_time += MPI_Wtime();
