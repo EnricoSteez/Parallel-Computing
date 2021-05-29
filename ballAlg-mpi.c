@@ -243,6 +243,50 @@ void furthest_points(long furthest[2], long* current_set, long current_set_size,
     furthest[1] =furthest_point_from_point(points[a], current_set, current_set_size, n);
 }
 
+void swap(double* a, double* b)
+{
+    double t = *a;
+    *a = *b;
+    *b = t;
+}
+
+void swap(long* a, long* b)
+{
+    long t = *a;
+    *a = *b;
+    *b = t;
+}
+ 
+int partition (double* arr, long* other, int low, int high)
+{
+    int pivot = arr[high]; // pivot
+    int i = (low - 1); // Index of smaller element and indicates the right position of pivot found so far
+ 
+    for (int j = low; j <= high - 1; j++)
+    {
+        // If current element is smaller than the pivot
+        if (arr[j] < pivot)
+        {
+            i++; // increment index of smaller element
+            swap(&arr[i], &arr[j]);
+            swap2(&other[i], &other[j]);
+        }
+    }
+    swap(&arr[i + 1], &arr[high]);
+    swap2(&other[i + 1], &other[high]);
+    return (i + 1);
+}
+
+void quickSort(double* arr, long* other, int low, int high)
+{
+    if (low < high)
+    {
+        int pi = partition(arr, other, low, high);
+        quickSort(arr, other, low, pi - 1);
+        quickSort(arr, other, pi + 1, high);
+    }
+}
+
 struct node* build_tree(long node_index, long* current_set, long current_set_size, long rec_level, int nprocs, int whichproc) {
     int p = nprocs/(pow(2,rec_level));
     int next_number_of_subtrees = (pow(2,rec_level+1));
@@ -297,7 +341,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
 
     }
 
-    qsort(proj_table, current_set_size, sizeof(struct ProjectedPoint), compare);
+    quickSort(proj_table, current_set, 0, current_set_size-1);
 
     double* center;
 
