@@ -508,10 +508,10 @@ int main(int argc, char **argv){
 
     points = get_points(argc, argv, &dim, &np);
     
-    //if(me==0){
-    //    printf("%d %ld\n",dim,np*2-1);
-//	fflush(stdout);
-  //  }
+    if(me==0){
+       printf("%d %ld\n",dim,np*2-1);
+	    fflush(stdout);
+    }
     
     long* current_set = (long*) malloc(np * sizeof(long));
 
@@ -581,7 +581,7 @@ int main(int argc, char **argv){
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    //dump_tree(tree, me);
+    dump_tree(tree, me);
     //fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     //fflush(stderr);
     free(tree);
