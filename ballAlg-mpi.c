@@ -117,7 +117,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
             phi = delta / gamma;
 
 
-            if(current_set_size % 2 == 1 && p == current_set/2 ) {
+            if(current_set_size % 2 == 1 && p == current_set_size/2 ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
@@ -125,7 +125,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
                 }
             }
 
-            else if(current_set_size % 2 == 0 && p == (current_set/2)-1 ) {
+            else if(current_set_size % 2 == 0 && p == (current_set_size/2)-1 ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
@@ -133,7 +133,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
                 }
             }
 
-            else if(current_set_size % 2 == 0 && p == (current_set/2) ) {
+            else if(current_set_size % 2 == 0 && p == (current_set_size/2) ) {
                 for(d = 0; d < dim; d++){
                     a = points[furthest_points[0]][d];
                     b = points[furthest_points[1]][d];
