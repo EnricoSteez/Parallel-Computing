@@ -107,7 +107,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
     if(n > 1) {
 
         #pragma omp parallel for firstprivate(delta, gamma, phi) private(a, b, point, d)
-        for(long p = 0; p < current_set_size; p++){
+        for(long p = 0; p < current_set_size; p++) {
             for(d = 0; d < dim; d++){
                 a = points[furthest_points[0]][d];
                 b = points[furthest_points[1]][d];
@@ -121,6 +121,7 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
             a = points[furthest_points[0]][0];
             b = points[furthest_points[1]][0];
 
+            proj_table[p] = phi * (b - a) + a;
 
 
             if(current_set_size%2==1 && p == current_set_size/2) {
@@ -146,7 +147,6 @@ double* orthogonal_projection(long current_set_size, long* current_set, long* fu
                 }
             }
 
-            proj_table[p] = phi * (b - a) + a;
 
             delta = 0;
             gamma = 0;
