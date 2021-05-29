@@ -488,14 +488,20 @@ int main(int argc, char **argv){
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    //dump_tree(tree, me);
-    //fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
+    for(int i=0;i<nprocs;i++){
+        if(me==i){
+            dump_tree(tree, me);
+        }
+        MPI_Barrier();
+
+    }
+    fprintf(stderr, "[%d] DUMP FINISHED!\n",me);
     //fflush(stderr);
     free(tree);
-    //for(int i= 0; i < np; i++) {
-    //	free(points[i]);
-    //}
-    //free(points);
+    for(int i= 0; i < np; i++) {
+    	free(points[i]);
+    }
+    free(points);
     MPI_Finalize();
 
     return 0;
