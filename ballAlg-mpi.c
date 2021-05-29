@@ -394,7 +394,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         center = (double*)malloc(dim*sizeof(double));
 
         for(long d = 0; d < dim; d++){
-            center[d] = (points[a][d] + points[b][d])/2
+            center[d] = (points[a][d] + points[b][d])/2;
         }
         
     }
