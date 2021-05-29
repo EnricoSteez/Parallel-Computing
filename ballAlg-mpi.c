@@ -301,7 +301,7 @@ void swap(double* a, double* b)
     *b = t;
 }
 
-void swap(long* a, long* b)
+void swap2(long* a, long* b)
 {
     long t = *a;
     *a = *b;
@@ -368,7 +368,7 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long a;
     long b;
 
-    struct double* proj_table;
+    double* proj_table;
     proj_table = (double*) malloc (current_set_size* sizeof(double));
 
     double* center;
