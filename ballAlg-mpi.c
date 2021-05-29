@@ -54,31 +54,31 @@ static int compare (const void * a, const void * b)
 }
 
 
-double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
+// double* find_center(long current_set_size, struct ProjectedPoint* proj_table){
 
-    long lindex=0;
-    double* pointProjection;
-    long rindex = current_set_size/2;
-    double* center = (double *) malloc(dim*sizeof(double));
+//     long lindex=0;
+//     double* pointProjection;
+//     long rindex = current_set_size/2;
+//     double* center = (double *) malloc(dim*sizeof(double));
 
 
-    if((current_set_size % 2) != 0){//ODD SET
-        long idx_median = current_set_size / 2;
-        memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
-    }
-    else{ //EVEN SET
+//     if((current_set_size % 2) != 0){//ODD SET
+//         long idx_median = current_set_size / 2;
+//         memcpy(center, proj_table[idx_median].projectedCoords,dim*sizeof(double));
+//     }
+//     else{ //EVEN SET
 
-        long idx_median_1 = current_set_size / 2 -1;
-        long idx_median_2 = current_set_size / 2;
+//         long idx_median_1 = current_set_size / 2 -1;
+//         long idx_median_2 = current_set_size / 2;
 
-        //center to be returned
-        for(int i = 0; i < dim; i++){
-            center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
-        }
-    }
+//         //center to be returned
+//         for(int i = 0; i < dim; i++){
+//             center[i] = (proj_table[idx_median_1].projectedCoords[i] + proj_table[idx_median_2].projectedCoords[i]) / 2;
+//         }
+//     }
     
-    return center;
-}
+//     return center;
+// }
 
 void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoint* proj_table, long rec_level, int n){
 
