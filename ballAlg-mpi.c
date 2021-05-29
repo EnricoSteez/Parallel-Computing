@@ -95,7 +95,7 @@ void rearrange_set(long current_set_size, long* current_set, struct ProjectedPoi
     }
 }
 
-void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, struct ProjectedPoint* proj_table, int n){
+void orthogonal_projection(long current_set_size, long* current_set, long* furthest_points, double* proj_table, int n){
     double delta = 0, gamma = 0, phi = 0;
     double a, b, point;
     int d;
@@ -113,13 +113,10 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
             }
             phi = delta / gamma;
 
-            proj_table[p].projectedCoords = (double*) malloc(dim * sizeof(double));
 
-            for(d = 0; d < dim; d++){
-                a = points[furthest_points[0]][d];
-                b = points[furthest_points[1]][d];
-                proj_table[p].projectedCoords[d] = phi * (b - a) + a;
-            }
+            a = points[furthest_points[0]][0];
+            b = points[furthest_points[1]][0];
+            proj_table[p] = phi * (b - a) + a;
 
             proj_table[p].idx = current_set[p];
 
@@ -149,7 +146,7 @@ void orthogonal_projection(long current_set_size, long* current_set, long* furth
                 proj_table[p].projectedCoords[d] = phi * (b - a) + a;
             }
 
-            proj_table[p].idx = current_set[p];
+            //proj_table[p].idx = current_set[p];
 
             delta = 0;
             gamma = 0;
@@ -276,8 +273,8 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
     long a;
     long b;
 
-    struct ProjectedPoint* proj_table;
-    proj_table = (struct ProjectedPoint*) malloc (current_set_size* sizeof(struct ProjectedPoint));
+    struct double* proj_table;
+    proj_table = (double*) malloc (current_set_size* sizeof(double));
     if(current_set_size > 2) {
         //compute points a and b, furthest apart in the current set;
         long furthest[2];
@@ -293,16 +290,9 @@ struct node* build_tree(long node_index, long* current_set, long current_set_siz
         //if there are only 2 points, no need to make orthogonal projection
         a = current_set[0];
         b = current_set[1];
-        proj_table[0].idx = a;
-        proj_table[1].idx = b;
 
-        proj_table[0].projectedCoords = (double*) malloc(dim * sizeof(double));
-        proj_table[1].projectedCoords = (double*) malloc(dim * sizeof(double));
-
-        for(int i = 0; i < dim; i++) {
-            proj_table[0].projectedCoords[i] = points[a][i];
-            proj_table[1].projectedCoords[i] = points[b][i];
-        }
+        proj_table[0] = points[a][0];
+        proj_table[1] = points[b][0];
 
 
     }
